@@ -208,6 +208,8 @@ contract Helper is Test, HelperEvents, HelperState {
         @param  receiver  address  Receiver
      */
     function _mintWrappedToken(uint256 amount, address receiver) internal {
+        vm.deal(address(this), amount);
+
         IWETH(address(weth)).deposit{value: amount}();
 
         weth.transfer(receiver, amount);
@@ -321,6 +323,9 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
         }
+
+        // Fund GMX reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGmx.distributor());
     }
 
     /**
@@ -755,6 +760,9 @@ contract Helper is Test, HelperEvents, HelperState {
             tokenAmount
         );
         pirexGmx.depositGmx(tokenAmount, receiver);
+
+        // Fund GMX reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGmx.distributor());
     }
 
     /**
