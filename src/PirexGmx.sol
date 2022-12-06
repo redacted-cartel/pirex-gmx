@@ -278,10 +278,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     function configureGmxState() external onlyOwner whenPaused {
         // Variables which can be assigned by reading previously-set GMX contracts
         rewardTrackerGmx = RewardTracker(gmxRewardRouterV2.feeGmxTracker());
-        rewardTrackerGlp = RewardTracker(gmxRewardRouterV2.feeGlpTracker());
-        feeStakedGlp = RewardTracker(gmxRewardRouterV2.stakedGlpTracker());
+        rewardTrackerGlp = RewardTracker(glpRewardRouterV2.feeGlpTracker());
+        feeStakedGlp = RewardTracker(glpRewardRouterV2.stakedGlpTracker());
         stakedGmx = RewardTracker(gmxRewardRouterV2.stakedGmxTracker());
-        glpManager = gmxRewardRouterV2.glpManager();
+        glpManager = glpRewardRouterV2.glpManager();
         gmxVault = IVault(IGlpManager(glpManager).vault());
 
         emit ConfigureGmxState(
@@ -507,7 +507,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         if (token == address(0)) {
             // Mint and stake GLP using ETH
-            deposited = gmxRewardRouterV2.mintAndStakeGlpETH{
+            deposited = glpRewardRouterV2.mintAndStakeGlpETH{
                 value: tokenAmount
             }(minUsdg, minGlp);
         } else {
@@ -518,7 +518,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             t.safeApprove(glpManager, tokenAmount);
 
             // Mint and stake GLP using ERC20 tokens
-            deposited = gmxRewardRouterV2.mintAndStakeGlp(
+            deposited = glpRewardRouterV2.mintAndStakeGlp(
                 token,
                 tokenAmount,
                 minUsdg,
@@ -660,12 +660,12 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         // Unstake and redeem the underlying GLP for ERC20 tokens
         redeemed = token == address(0)
-            ? gmxRewardRouterV2.unstakeAndRedeemGlpETH(
+            ? glpRewardRouterV2.unstakeAndRedeemGlpETH(
                 postFeeAmount,
                 minOut,
                 receiver
             )
-            : gmxRewardRouterV2.unstakeAndRedeemGlp(
+            : glpRewardRouterV2.unstakeAndRedeemGlp(
                 token,
                 postFeeAmount,
                 minOut,

@@ -115,11 +115,11 @@ contract Helper is Test, HelperEvents, HelperState {
         delegateRegistry = new DelegateRegistry();
 
         rewardTrackerGmx = RewardTracker(REWARD_ROUTER_V2.feeGmxTracker());
-        rewardTrackerGlp = RewardTracker(REWARD_ROUTER_V2.feeGlpTracker());
+        rewardTrackerGlp = RewardTracker(GLP_REWARD_ROUTER_V2.feeGlpTracker());
         rewardTrackerMp = RewardTracker(REWARD_ROUTER_V2.bonusGmxTracker());
-        feeStakedGlp = RewardTracker(REWARD_ROUTER_V2.stakedGlpTracker());
+        feeStakedGlp = RewardTracker(GLP_REWARD_ROUTER_V2.stakedGlpTracker());
         stakedGmx = RewardTracker(REWARD_ROUTER_V2.stakedGmxTracker());
-        glpManager = IGlpManager(REWARD_ROUTER_V2.glpManager());
+        glpManager = IGlpManager(GLP_REWARD_ROUTER_V2.glpManager());
         gmx = IGMX(REWARD_ROUTER_V2.gmx());
         weth = ERC20(REWARD_ROUTER_V2.weth());
         bnGmx = REWARD_ROUTER_V2.bnGmx();
