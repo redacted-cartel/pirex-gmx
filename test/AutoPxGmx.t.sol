@@ -306,6 +306,8 @@ contract AutoPxGmxTest is Helper {
 
         assertEq(expectedPlatform, autoPxGmx.platform());
         assertTrue(expectedPlatform != initialPlatform);
+        assertEq(0, gmx.allowance(address(autoPxGmx), initialPlatform));
+        assertEq(type(uint256).max, gmx.allowance(address(autoPxGmx), platform));
     }
 
     /*//////////////////////////////////////////////////////////////
