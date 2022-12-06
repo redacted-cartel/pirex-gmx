@@ -79,6 +79,8 @@ contract PirexGmxTest is Test, Helper {
             newContractAddress = address(pirexGmx.pirexFees());
         if (c == PirexGmx.Contracts.RewardRouterV2)
             newContractAddress = address(pirexGmx.gmxRewardRouterV2());
+        if (c == PirexGmx.Contracts.GlpRewardRouterV2)
+            newContractAddress = address(pirexGmx.glpRewardRouterV2());
         if (c == PirexGmx.Contracts.RewardTrackerGmx)
             newContractAddress = address(pirexGmx.rewardTrackerGmx());
         if (c == PirexGmx.Contracts.RewardTrackerGlp)
@@ -181,7 +183,10 @@ contract PirexGmxTest is Test, Helper {
         assertEq(address(stakedGmx), address(freshPirexGmx.stakedGmx()));
         assertEq(address(glpManager), address(freshPirexGmx.glpManager()));
         assertEq(address(gmxVault), address(freshPirexGmx.gmxVault()));
-        assertEq(type(uint256).max, gmx.allowance(address(freshPirexGmx), address(stakedGmx)));
+        assertEq(
+            type(uint256).max,
+            gmx.allowance(address(freshPirexGmx), address(stakedGmx))
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -302,6 +307,18 @@ contract PirexGmxTest is Test, Helper {
         assertFalse(currentContractAddress == contractAddress);
 
         _setContract(PirexGmx.Contracts.RewardRouterV2, contractAddress);
+    }
+
+    /**
+        @notice Test tx success: set glpRewardRouterV2 to a new contract address
+     */
+    function testSetContractGlpRewardRouterV2() external {
+        address currentContractAddress = address(pirexGmx.glpRewardRouterV2());
+        address contractAddress = address(this);
+
+        assertFalse(currentContractAddress == contractAddress);
+
+        _setContract(PirexGmx.Contracts.GlpRewardRouterV2, contractAddress);
     }
 
     /**

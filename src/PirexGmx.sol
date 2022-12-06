@@ -31,6 +31,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     enum Contracts {
         PirexFees,
         RewardRouterV2,
+        GlpRewardRouterV2,
         RewardTrackerGmx,
         RewardTrackerGlp,
         FeeStakedGlp,
@@ -330,6 +331,11 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         if (c == Contracts.RewardRouterV2) {
             gmxRewardRouterV2 = IRewardRouterV2(contractAddress);
+            return;
+        }
+
+        if (c == Contracts.GlpRewardRouterV2) {
+            glpRewardRouterV2 = IRewardRouterV2(contractAddress);
             return;
         }
 
