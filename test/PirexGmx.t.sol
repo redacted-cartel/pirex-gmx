@@ -139,6 +139,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 
@@ -2027,6 +2028,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 
@@ -2086,6 +2088,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 

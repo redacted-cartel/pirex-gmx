@@ -38,6 +38,12 @@ contract Helper is Test, HelperEvents, HelperState {
                 ? 0x82147C5A7E850eA4E28155DF107F2590fD4ba327
                 : 0xA906F338CB21815cBc4Bc87ace9e68c87eF8d8F1
         );
+    IRewardRouterV2 internal immutable GLP_REWARD_ROUTER_V2 =
+        IRewardRouterV2(
+            block.chainid == AVAX_CHAIN_ID
+                ? 0xB70B91CE0771d3f4c81D87660f71Da31d48eB3B3
+                : 0xB95DB5B167D75e6d04227CfFFA61069348d271F5
+        );
     IStakedGlp internal immutable STAKED_GLP =
         IStakedGlp(
             block.chainid == AVAX_CHAIN_ID
@@ -152,6 +158,7 @@ contract Helper is Test, HelperEvents, HelperState {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
         autoPxGmx = new AutoPxGmx(
