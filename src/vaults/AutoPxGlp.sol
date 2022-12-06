@@ -130,6 +130,10 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     function setPlatform(address _platform) external onlyOwner {
         if (_platform == address(0)) revert ZeroAddress();
 
+        // Update base reward transfer allowance for the old and new platforms
+        gmxBaseReward.safeApprove(platform, 0);
+        gmxBaseReward.safeApprove(_platform, type(uint256).max);
+
         platform = _platform;
 
         emit PlatformUpdated(_platform);
