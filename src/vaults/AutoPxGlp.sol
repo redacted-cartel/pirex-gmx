@@ -171,8 +171,8 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     /**
         @notice Preview the amount of shares a user would need to redeem the specified asset amount
         @notice This modified version takes into consideration the withdrawal fee
-        @param  assets   uint256  Assets amount
-        @return          uint256  Shares amount
+        @param  assets  uint256  Assets amount
+        @return         uint256  Shares amount
      */
     function previewWithdraw(uint256 assets)
         public
@@ -190,8 +190,10 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         return
             (_totalSupply == 0 || _totalSupply - shares == 0)
                 ? shares
-                : (shares * FEE_DENOMINATOR) /
-                    (FEE_DENOMINATOR - withdrawalPenalty);
+                : shares.mulDivUp(
+                    FEE_DENOMINATOR,
+                    FEE_DENOMINATOR - withdrawalPenalty
+                );
     }
 
     /**
