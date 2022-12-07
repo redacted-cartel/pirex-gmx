@@ -531,6 +531,8 @@ contract AutoPxGlpTest is Helper {
 
         assertEq(expectedPlatform, autoPxGlp.platform());
         assertTrue(expectedPlatform != initialPlatform);
+        assertEq(0, weth.allowance(address(autoPxGlp), initialPlatform));
+        assertEq(type(uint256).max, weth.allowance(address(autoPxGlp), platform));
     }
 
     /*//////////////////////////////////////////////////////////////

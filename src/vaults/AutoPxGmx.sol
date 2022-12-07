@@ -152,6 +152,10 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     function setPlatform(address _platform) external onlyOwner {
         if (_platform == address(0)) revert ZeroAddress();
 
+        // Update GMX transfer allowance for the old and new platforms
+        gmx.safeApprove(platform, 0);
+        gmx.safeApprove(_platform, type(uint256).max);
+
         platform = _platform;
 
         emit PlatformUpdated(_platform);
