@@ -193,8 +193,8 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     /**
         @notice Preview the amount of shares a user would need to redeem the specified asset amount
         @notice This modified version takes into consideration the withdrawal fee
-        @param  assets  uint256  Assets
-        @return uint256  Shares
+        @param  assets   uint256  Assets
+        @return          uint256  Shares
      */
     function previewWithdraw(uint256 assets)
         public
@@ -212,8 +212,10 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         return
             (_totalSupply == 0 || _totalSupply - shares == 0)
                 ? shares
-                : (shares * FEE_DENOMINATOR) /
-                    (FEE_DENOMINATOR - withdrawalPenalty);
+                : shares.mulDivUp(
+                    FEE_DENOMINATOR,
+                    FEE_DENOMINATOR - withdrawalPenalty
+                );
     }
 
     /**
