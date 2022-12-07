@@ -939,4 +939,12 @@ contract Helper is Test, HelperEvents, HelperState {
             balances[i * propsLength + 1] = IERC20(token).totalSupply();
         }
     }
+
+    /**
+        @notice Set the value of GlpManager's cooldownDuration
+        @param  duration  uint256  Cooldown duration
+    */
+    function _setCooldownDuration(uint256 duration) internal {
+        vm.store(address(glpManager), bytes32(uint256(6)), bytes32(duration));
+    }
 }

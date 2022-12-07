@@ -802,6 +802,22 @@ contract PirexGmxTest is Test, Helper {
         );
     }
 
+    /**
+        @notice Test tx reversion: cooldown is in effect
+     */
+    function testCannotDepositGlpETHCooldownDuration() external {
+        uint256 etherAmount = 1 ether;
+        uint256 minUsdg = 1;
+        uint256 minGlp = 1;
+        address receiver = address(this);
+
+        _setCooldownDuration(1);
+
+        vm.expectRevert(PirexGmx.CooldownDuration.selector);
+
+        pirexGmx.depositGlpETH{value: etherAmount}(minUsdg, minGlp, receiver);
+    }
+
     // /**
     //     @notice Test tx success: testDepositGlp fuzz test covers both methods
     //  */
@@ -954,6 +970,23 @@ contract PirexGmxTest is Test, Helper {
             minGlp,
             invalidReceiver
         );
+    }
+
+    /**
+        @notice Test tx reversion: cooldown is in effect
+     */
+    function testCannotDepositGlpCooldownDuration() external {
+        address token = address(weth);
+        uint256 tokenAmount = 1;
+        uint256 minUsdg = 1;
+        uint256 minGlp = 1;
+        address receiver = address(this);
+
+        _setCooldownDuration(1);
+
+        vm.expectRevert(PirexGmx.CooldownDuration.selector);
+
+        pirexGmx.depositGlp(token, tokenAmount, minUsdg, minGlp, receiver);
     }
 
     /**

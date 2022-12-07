@@ -152,6 +152,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     error EmptyString();
     error NotMigratedTo();
     error PendingMigration();
+    error CooldownDuration();
 
     /**
         @param  _pxGmx              address  PxGmx contract address
@@ -269,6 +270,14 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
                 (cumulativeRewardPerToken -
                     r.previousCumulatedRewardPerToken(address(this)))) /
                 precision);
+    }
+
+    /**
+        @notice Determine whether GLP functionality has a cooldown
+        @return bool  Whether the coolDuration is a non-zero value
+    */
+    function _hasCooldownDuration() internal returns (bool) {
+        return IGlpManager(glpManager).cooldownDuration() != 0;
     }
 
     /**
@@ -503,6 +512,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (minUsdg == 0) revert ZeroAmount();
         if (minGlp == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
+        if (_hasCooldownDuration()) revert CooldownDuration();
 
         if (token == address(0)) {
             // Mint and stake GLP using ETH
