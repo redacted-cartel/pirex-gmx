@@ -79,6 +79,8 @@ contract PirexGmxTest is Test, Helper {
             newContractAddress = address(pirexGmx.pirexFees());
         if (c == PirexGmx.Contracts.RewardRouterV2)
             newContractAddress = address(pirexGmx.gmxRewardRouterV2());
+        if (c == PirexGmx.Contracts.GlpRewardRouterV2)
+            newContractAddress = address(pirexGmx.glpRewardRouterV2());
         if (c == PirexGmx.Contracts.RewardTrackerGmx)
             newContractAddress = address(pirexGmx.rewardTrackerGmx());
         if (c == PirexGmx.Contracts.RewardTrackerGlp)
@@ -139,6 +141,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 
@@ -180,7 +183,10 @@ contract PirexGmxTest is Test, Helper {
         assertEq(address(stakedGmx), address(freshPirexGmx.stakedGmx()));
         assertEq(address(glpManager), address(freshPirexGmx.glpManager()));
         assertEq(address(gmxVault), address(freshPirexGmx.gmxVault()));
-        assertEq(type(uint256).max, gmx.allowance(address(freshPirexGmx), address(stakedGmx)));
+        assertEq(
+            type(uint256).max,
+            gmx.allowance(address(freshPirexGmx), address(stakedGmx))
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -301,6 +307,18 @@ contract PirexGmxTest is Test, Helper {
         assertFalse(currentContractAddress == contractAddress);
 
         _setContract(PirexGmx.Contracts.RewardRouterV2, contractAddress);
+    }
+
+    /**
+        @notice Test tx success: set glpRewardRouterV2 to a new contract address
+     */
+    function testSetContractGlpRewardRouterV2() external {
+        address currentContractAddress = address(pirexGmx.glpRewardRouterV2());
+        address contractAddress = address(this);
+
+        assertFalse(currentContractAddress == contractAddress);
+
+        _setContract(PirexGmx.Contracts.GlpRewardRouterV2, contractAddress);
     }
 
     /**
@@ -2027,6 +2045,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 
@@ -2086,6 +2105,7 @@ contract PirexGmxTest is Test, Helper {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
 

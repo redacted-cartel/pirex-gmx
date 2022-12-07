@@ -38,6 +38,12 @@ contract Helper is Test, HelperEvents, HelperState {
                 ? 0x82147C5A7E850eA4E28155DF107F2590fD4ba327
                 : 0xA906F338CB21815cBc4Bc87ace9e68c87eF8d8F1
         );
+    IRewardRouterV2 internal immutable GLP_REWARD_ROUTER_V2 =
+        IRewardRouterV2(
+            block.chainid == AVAX_CHAIN_ID
+                ? 0xB70B91CE0771d3f4c81D87660f71Da31d48eB3B3
+                : 0xB95DB5B167D75e6d04227CfFFA61069348d271F5
+        );
     IStakedGlp internal immutable STAKED_GLP =
         IStakedGlp(
             block.chainid == AVAX_CHAIN_ID
@@ -109,11 +115,11 @@ contract Helper is Test, HelperEvents, HelperState {
         delegateRegistry = new DelegateRegistry();
 
         rewardTrackerGmx = RewardTracker(REWARD_ROUTER_V2.feeGmxTracker());
-        rewardTrackerGlp = RewardTracker(REWARD_ROUTER_V2.feeGlpTracker());
+        rewardTrackerGlp = RewardTracker(GLP_REWARD_ROUTER_V2.feeGlpTracker());
         rewardTrackerMp = RewardTracker(REWARD_ROUTER_V2.bonusGmxTracker());
-        feeStakedGlp = RewardTracker(REWARD_ROUTER_V2.stakedGlpTracker());
+        feeStakedGlp = RewardTracker(GLP_REWARD_ROUTER_V2.stakedGlpTracker());
         stakedGmx = RewardTracker(REWARD_ROUTER_V2.stakedGmxTracker());
-        glpManager = IGlpManager(REWARD_ROUTER_V2.glpManager());
+        glpManager = IGlpManager(GLP_REWARD_ROUTER_V2.glpManager());
         gmx = IGMX(REWARD_ROUTER_V2.gmx());
         weth = ERC20(REWARD_ROUTER_V2.weth());
         bnGmx = REWARD_ROUTER_V2.bnGmx();
@@ -152,6 +158,7 @@ contract Helper is Test, HelperEvents, HelperState {
             REWARD_ROUTER_V2.gmx(),
             REWARD_ROUTER_V2.esGmx(),
             address(REWARD_ROUTER_V2),
+            address(GLP_REWARD_ROUTER_V2),
             address(STAKED_GLP)
         );
         autoPxGmx = new AutoPxGmx(
@@ -201,6 +208,8 @@ contract Helper is Test, HelperEvents, HelperState {
         @param  receiver  address  Receiver
      */
     function _mintWrappedToken(uint256 amount, address receiver) internal {
+        vm.deal(address(this), amount);
+
         IWETH(address(weth)).deposit{value: amount}();
 
         weth.transfer(receiver, amount);
@@ -314,6 +323,9 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
         }
+
+        // Fund GMX reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGmx.distributor());
     }
 
     /**
@@ -748,6 +760,9 @@ contract Helper is Test, HelperEvents, HelperState {
             tokenAmount
         );
         pirexGmx.depositGmx(tokenAmount, receiver);
+
+        // Fund GMX reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGmx.distributor());
     }
 
     /**

@@ -31,6 +31,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     enum Contracts {
         PirexFees,
         RewardRouterV2,
+        GlpRewardRouterV2,
         RewardTrackerGmx,
         RewardTrackerGlp,
         FeeStakedGlp,
@@ -66,6 +67,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
     // GMX contracts
     IRewardRouterV2 public gmxRewardRouterV2;
+    IRewardRouterV2 public glpRewardRouterV2;
     RewardTracker public rewardTrackerGmx;
     RewardTracker public rewardTrackerGlp;
     RewardTracker public feeStakedGlp;
@@ -162,6 +164,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         @param  _gmx                address  GMX token contract address
         @param  _esGmx              address  esGMX token contract address
         @param  _gmxRewardRouterV2  address  GMX Reward Router contract address
+        @param  _glpRewardRouterV2  address  GLP Reward Router contract address
         @param  _stakedGlp          address  Staked GLP token contract address
     */
     constructor(
@@ -174,6 +177,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         address _gmx,
         address _esGmx,
         address _gmxRewardRouterV2,
+        address _glpRewardRouterV2,
         address _stakedGlp
     ) Owned(msg.sender) {
         // Start the contract paused, to ensure contract set is properly configured
@@ -188,6 +192,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (_gmx == address(0)) revert ZeroAddress();
         if (_esGmx == address(0)) revert ZeroAddress();
         if (_gmxRewardRouterV2 == address(0)) revert ZeroAddress();
+        if (_glpRewardRouterV2 == address(0)) revert ZeroAddress();
         if (_stakedGlp == address(0)) revert ZeroAddress();
 
         pxGmx = PxERC20(_pxGmx);
@@ -199,6 +204,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         gmx = ERC20(_gmx);
         esGmx = ERC20(_esGmx);
         gmxRewardRouterV2 = IRewardRouterV2(_gmxRewardRouterV2);
+        glpRewardRouterV2 = IRewardRouterV2(_glpRewardRouterV2);
         stakedGlp = IStakedGlp(_stakedGlp);
     }
 
@@ -272,10 +278,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     function configureGmxState() external onlyOwner whenPaused {
         // Variables which can be assigned by reading previously-set GMX contracts
         rewardTrackerGmx = RewardTracker(gmxRewardRouterV2.feeGmxTracker());
-        rewardTrackerGlp = RewardTracker(gmxRewardRouterV2.feeGlpTracker());
-        feeStakedGlp = RewardTracker(gmxRewardRouterV2.stakedGlpTracker());
+        rewardTrackerGlp = RewardTracker(glpRewardRouterV2.feeGlpTracker());
+        feeStakedGlp = RewardTracker(glpRewardRouterV2.stakedGlpTracker());
         stakedGmx = RewardTracker(gmxRewardRouterV2.stakedGmxTracker());
-        glpManager = gmxRewardRouterV2.glpManager();
+        glpManager = glpRewardRouterV2.glpManager();
         gmxVault = IVault(IGlpManager(glpManager).vault());
 
         emit ConfigureGmxState(
@@ -325,6 +331,11 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         if (c == Contracts.RewardRouterV2) {
             gmxRewardRouterV2 = IRewardRouterV2(contractAddress);
+            return;
+        }
+
+        if (c == Contracts.GlpRewardRouterV2) {
+            glpRewardRouterV2 = IRewardRouterV2(contractAddress);
             return;
         }
 
@@ -496,7 +507,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         if (token == address(0)) {
             // Mint and stake GLP using ETH
-            deposited = gmxRewardRouterV2.mintAndStakeGlpETH{
+            deposited = glpRewardRouterV2.mintAndStakeGlpETH{
                 value: tokenAmount
             }(minUsdg, minGlp);
         } else {
@@ -507,7 +518,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             t.safeApprove(glpManager, tokenAmount);
 
             // Mint and stake GLP using ERC20 tokens
-            deposited = gmxRewardRouterV2.mintAndStakeGlp(
+            deposited = glpRewardRouterV2.mintAndStakeGlp(
                 token,
                 tokenAmount,
                 minUsdg,
@@ -649,12 +660,12 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         // Unstake and redeem the underlying GLP for ERC20 tokens
         redeemed = token == address(0)
-            ? gmxRewardRouterV2.unstakeAndRedeemGlpETH(
+            ? glpRewardRouterV2.unstakeAndRedeemGlpETH(
                 postFeeAmount,
                 minOut,
                 receiver
             )
-            : gmxRewardRouterV2.unstakeAndRedeemGlp(
+            : glpRewardRouterV2.unstakeAndRedeemGlp(
                 token,
                 postFeeAmount,
                 minOut,

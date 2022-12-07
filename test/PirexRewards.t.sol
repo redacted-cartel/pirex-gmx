@@ -1785,8 +1785,7 @@ contract PirexRewardsTest is Helper {
         address receiver = address(this);
         uint256 gmxAmount = 100e18;
 
-        _mintApproveGmx(gmxAmount, address(this), address(pirexGmx), gmxAmount);
-        pirexGmx.depositGmx(gmxAmount, receiver);
+        _depositGmx(gmxAmount, receiver);
 
         vm.warp(block.timestamp + 1 days);
 
