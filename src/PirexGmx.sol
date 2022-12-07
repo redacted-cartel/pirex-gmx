@@ -15,6 +15,7 @@ import {IStakedGlp} from "src/interfaces/IStakedGlp.sol";
 import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {IPirexRewards} from "src/interfaces/IPirexRewards.sol";
 import {IGlpManager, IVault} from "src/external/GlpManager.sol";
+import {PirexGmxGlpDepositor} from "src/PirexGmxGlpDepositor.sol";
 
 contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     using SafeTransferLib for ERC20;
@@ -152,7 +153,6 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     error EmptyString();
     error NotMigratedTo();
     error PendingMigration();
-    error CooldownDuration();
 
     /**
         @param  _pxGmx              address  PxGmx contract address
@@ -512,7 +512,6 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (minUsdg == 0) revert ZeroAmount();
         if (minGlp == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
-        if (_hasCooldownDuration()) revert CooldownDuration();
 
         if (token == address(0)) {
             // Mint and stake GLP using ETH
@@ -567,7 +566,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         @param  minUsdg    uint256  Minimum USDG purchased and used to mint GLP
         @param  minGlp     uint256  Minimum GLP amount minted from ETH
         @param  receiver   address  pxGLP receiver
-        @return deposited  uint256  GLP deposited
+        @return            uint256  GLP deposited
         @return            uint256  pxGLP minted for the receiver
         @return            uint256  pxGLP distributed as fees
      */
@@ -586,6 +585,18 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             uint256
         )
     {
+        // If GLP cooldowns are enabled, circumvent by depositing via a disposable intermediary
+        if (_hasCooldownDuration()) {
+            return
+                (new PirexGmxGlpDepositor()).depositGlpETH{value: msg.value}(
+                    glpRewardRouterV2,
+                    stakedGlp,
+                    minUsdg,
+                    minGlp,
+                    receiver
+                );
+        }
+
         return _depositGlp(address(0), msg.value, minUsdg, minGlp, receiver);
     }
 
@@ -619,6 +630,21 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (token == address(0)) revert ZeroAddress();
         if (!gmxVault.whitelistedTokens(token)) revert InvalidToken(token);
 
+        // If GLP cooldowns are enabled, circumvent by depositing via a disposable intermediary
+        if (_hasCooldownDuration()) {
+            return
+                (new PirexGmxGlpDepositor()).depositGlp(
+                    glpRewardRouterV2,
+                    glpManager,
+                    stakedGlp,
+                    token,
+                    tokenAmount,
+                    minUsdg,
+                    minGlp,
+                    receiver
+                );
+        }
+
         return _depositGlp(token, tokenAmount, minUsdg, minGlp, receiver);
     }
 
@@ -648,7 +674,6 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (amount == 0) revert ZeroAmount();
         if (minOut == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
-        if (_hasCooldownDuration()) revert CooldownDuration();
 
         // Calculate the post-fee and fee amounts based on the fee type and total amount
         (postFeeAmount, feeAmount) = _computeAssetAmounts(

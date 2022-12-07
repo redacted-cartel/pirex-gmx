@@ -802,22 +802,6 @@ contract PirexGmxTest is Test, Helper {
         );
     }
 
-    /**
-        @notice Test tx reversion: cooldown is in effect
-     */
-    function testCannotDepositGlpETHCooldownDuration() external {
-        uint256 etherAmount = 1 ether;
-        uint256 minUsdg = 1;
-        uint256 minGlp = 1;
-        address receiver = address(this);
-
-        _setCooldownDuration(1);
-
-        vm.expectRevert(PirexGmx.CooldownDuration.selector);
-
-        pirexGmx.depositGlpETH{value: etherAmount}(minUsdg, minGlp, receiver);
-    }
-
     // /**
     //     @notice Test tx success: testDepositGlp fuzz test covers both methods
     //  */
@@ -973,23 +957,6 @@ contract PirexGmxTest is Test, Helper {
     }
 
     /**
-        @notice Test tx reversion: cooldown is in effect
-     */
-    function testCannotDepositGlpCooldownDuration() external {
-        address token = address(weth);
-        uint256 tokenAmount = 1;
-        uint256 minUsdg = 1;
-        uint256 minGlp = 1;
-        address receiver = address(this);
-
-        _setCooldownDuration(1);
-
-        vm.expectRevert(PirexGmx.CooldownDuration.selector);
-
-        pirexGmx.depositGlp(token, tokenAmount, minUsdg, minGlp, receiver);
-    }
-
-    /**
         @notice Test tx reversion: minGlp is greater than output
      */
     function testCannotDepositGlpMinGlpInsufficientGlpOutput() external {
@@ -1141,21 +1108,6 @@ contract PirexGmxTest is Test, Helper {
     }
 
     /**
-        @notice Test tx reversion: cooldown is in effect
-     */
-    function testCannotRedeemPxGlpETHCooldownDuration() external {
-        uint256 assets = 1;
-        uint256 minOut = 1;
-        address receiver = address(this);
-
-        _setCooldownDuration(1);
-
-        vm.expectRevert(PirexGmx.CooldownDuration.selector);
-
-        pirexGmx.redeemPxGlpETH(assets, minOut, receiver);
-    }
-
-    /**
         @notice Test tx reversion: minOut is greater than output
      */
     function testCannotRedeemPxGlpETHMinOutInsufficientOutput() external {
@@ -1274,22 +1226,6 @@ contract PirexGmxTest is Test, Helper {
         vm.expectRevert(PirexGmx.ZeroAddress.selector);
 
         pirexGmx.redeemPxGlp(token, assets, minOut, invalidReceiver);
-    }
-
-    /**
-        @notice Test tx reversion: cooldown is in effect
-     */
-    function testCannotRedeemPxGlpCooldownDuration() external {
-        address token = address(weth);
-        uint256 assets = 1;
-        uint256 minOut = 1;
-        address receiver = address(this);
-
-        _setCooldownDuration(1);
-
-        vm.expectRevert(PirexGmx.CooldownDuration.selector);
-
-        pirexGmx.redeemPxGlp(token, assets, minOut, receiver);
     }
 
     /**
