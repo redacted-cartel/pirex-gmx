@@ -648,6 +648,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (amount == 0) revert ZeroAmount();
         if (minOut == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
+        if (_hasCooldownDuration()) revert CooldownDuration();
 
         // Calculate the post-fee and fee amounts based on the fee type and total amount
         (postFeeAmount, feeAmount) = _computeAssetAmounts(
