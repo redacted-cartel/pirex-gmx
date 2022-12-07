@@ -12,10 +12,9 @@ import {DelegateRegistry} from "src/external/DelegateRegistry.sol";
 import {IRewardRouterV2} from "src/interfaces/IRewardRouterV2.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
 import {IStakedGlp} from "src/interfaces/IStakedGlp.sol";
-import {IVault} from "src/interfaces/IVault.sol";
 import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {IPirexRewards} from "src/interfaces/IPirexRewards.sol";
-import {IGlpManager} from "src/interfaces/IGlpManager.sol";
+import {IGlpManager, IVault} from "src/external/GlpManager.sol";
 
 contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     using SafeTransferLib for ERC20;
@@ -282,7 +281,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         feeStakedGlp = RewardTracker(glpRewardRouterV2.stakedGlpTracker());
         stakedGmx = RewardTracker(gmxRewardRouterV2.stakedGmxTracker());
         glpManager = glpRewardRouterV2.glpManager();
-        gmxVault = IVault(IGlpManager(glpManager).vault());
+        gmxVault = IGlpManager(glpManager).vault();
 
         emit ConfigureGmxState(
             msg.sender,

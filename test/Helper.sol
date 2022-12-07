@@ -16,11 +16,10 @@ import {GlobalState} from "src/Common.sol";
 import {AutoPxGmx} from "src/vaults/AutoPxGmx.sol";
 import {AutoPxGlp} from "src/vaults/AutoPxGlp.sol";
 import {IRewardRouterV2} from "src/interfaces/IRewardRouterV2.sol";
-import {IGlpManager} from "src/interfaces/IGlpManager.sol";
+import {GlpManager, IVault} from "src/external/GlpManager.sol";
 import {IGMX} from "src/interfaces/IGMX.sol";
 import {ITimelock} from "src/interfaces/ITimelock.sol";
 import {IWETH} from "src/interfaces/IWETH.sol";
-import {IVault} from "src/interfaces/IVault.sol";
 import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
 import {IStakedGlp} from "src/interfaces/IStakedGlp.sol";
@@ -82,7 +81,7 @@ contract Helper is Test, HelperEvents, HelperState {
     RewardTracker internal immutable rewardTrackerMp;
     RewardTracker internal immutable feeStakedGlp;
     RewardTracker internal immutable stakedGmx;
-    IGlpManager internal immutable glpManager;
+    GlpManager internal immutable glpManager;
     IVault internal immutable vault;
     IGMX internal immutable gmx;
 
@@ -119,12 +118,12 @@ contract Helper is Test, HelperEvents, HelperState {
         rewardTrackerMp = RewardTracker(REWARD_ROUTER_V2.bonusGmxTracker());
         feeStakedGlp = RewardTracker(GLP_REWARD_ROUTER_V2.stakedGlpTracker());
         stakedGmx = RewardTracker(REWARD_ROUTER_V2.stakedGmxTracker());
-        glpManager = IGlpManager(GLP_REWARD_ROUTER_V2.glpManager());
+        glpManager = GlpManager(GLP_REWARD_ROUTER_V2.glpManager());
         gmx = IGMX(REWARD_ROUTER_V2.gmx());
         weth = ERC20(REWARD_ROUTER_V2.weth());
         bnGmx = REWARD_ROUTER_V2.bnGmx();
         esGmx = REWARD_ROUTER_V2.esGmx();
-        vault = IVault(glpManager.vault());
+        vault = glpManager.vault();
         usdg = IERC20(glpManager.usdg());
 
         // Deploy the upgradable pirexRewards contract instance

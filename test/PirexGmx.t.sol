@@ -9,8 +9,7 @@ import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {IWETH} from "src/interfaces/IWETH.sol";
 import {DelegateRegistry} from "src/external/DelegateRegistry.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
-import {IGlpManager} from "src/interfaces/IGlpManager.sol";
-import {IVault} from "src/interfaces/IVault.sol";
+import {IVault} from "src/external/GlpManager.sol";
 import {Helper} from "./Helper.sol";
 
 contract PirexGmxTest is Test, Helper {
@@ -155,7 +154,7 @@ contract PirexGmxTest is Test, Helper {
         assertEq(address(0), address(freshPirexGmx.gmxVault()));
         assertEq(0, gmx.allowance(address(freshPirexGmx), address(stakedGmx)));
 
-        IVault gmxVault = IVault(IGlpManager(glpManager).vault());
+        IVault gmxVault = glpManager.vault();
 
         vm.expectEmit(true, false, false, true, address(freshPirexGmx));
 
