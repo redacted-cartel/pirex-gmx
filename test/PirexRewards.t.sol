@@ -291,6 +291,7 @@ contract PirexRewardsTest is Helper {
         @param  secondsElapsed    uint32  Seconds to forward timestamp (equivalent to total rewards accrued)
         @param  multiplier        uint8   Multiplied with fixed token amounts for randomness
         @param  useETH            bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown       bool    Whether or not to enable GLP cooldown duration
         @param  testAccountIndex  uint8   Index of test account
         @param  useGmx            bool    Whether to use pxGMX
      */
@@ -298,6 +299,7 @@ contract PirexRewardsTest is Helper {
         uint32 secondsElapsed,
         uint8 multiplier,
         bool useETH,
+        bool hasCooldown,
         uint8 testAccountIndex,
         bool useGmx
     ) external {
@@ -311,7 +313,7 @@ contract PirexRewardsTest is Helper {
             ? ERC20(address(pxGmx))
             : ERC20(address(pxGlp));
 
-        _depositForTestAccounts(useGmx, multiplier, useETH);
+        _depositForTestAccounts(useGmx, multiplier, useETH, hasCooldown);
 
         address user = testAccounts[testAccountIndex];
         uint256 pxBalance = producerToken.balanceOf(user);
@@ -371,6 +373,7 @@ contract PirexRewardsTest is Helper {
         @param  secondsElapsed  uint32  Seconds to forward timestamp (equivalent to total rewards accrued)
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
         @param  accrueGlobal    bool    Whether or not to update global reward accrual state
         @param  useGmx          bool    Whether to use pxGMX
      */
@@ -378,6 +381,7 @@ contract PirexRewardsTest is Helper {
         uint32 secondsElapsed,
         uint8 multiplier,
         bool useETH,
+        bool hasCooldown,
         bool accrueGlobal,
         bool useGmx
     ) external {
@@ -390,7 +394,7 @@ contract PirexRewardsTest is Helper {
             ? ERC20(address(pxGmx))
             : ERC20(address(pxGlp));
 
-        _depositForTestAccounts(useGmx, multiplier, useETH);
+        _depositForTestAccounts(useGmx, multiplier, useETH, hasCooldown);
 
         // Forward timestamp by X seconds which will determine the total amount of rewards accrued
         vm.warp(block.timestamp + secondsElapsed);
@@ -472,6 +476,7 @@ contract PirexRewardsTest is Helper {
         @param  rounds               uint8   Number of rounds to fast forward time and accrue rewards
         @param  multiplier           uint8   Multiplied with fixed token amounts for randomness
         @param  useETH               bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown          bool    Whether or not to enable GLP cooldown duration
         @param  delayedAccountIndex  uint8   Test account index that will delay reward accrual until the end
         @param  useGmx               bool    Whether to use pxGMX
      */
@@ -480,6 +485,7 @@ contract PirexRewardsTest is Helper {
         uint8 rounds,
         uint8 multiplier,
         bool useETH,
+        bool hasCooldown,
         uint8 delayedAccountIndex,
         bool useGmx
     ) external {
@@ -495,7 +501,7 @@ contract PirexRewardsTest is Helper {
             ? ERC20(address(pxGmx))
             : ERC20(address(pxGlp));
 
-        _depositForTestAccounts(useGmx, multiplier, useETH);
+        _depositForTestAccounts(useGmx, multiplier, useETH, hasCooldown);
 
         // Sum up the rewards accrued - after all rounds - for accounts where accrual is not delayed
         uint256 nonDelayedTotalRewards;
@@ -590,6 +596,7 @@ contract PirexRewardsTest is Helper {
         @param  transferPercent  uint8   Percent for testing partial balance transfers
         @param  useTransfer      bool    Whether or not to use the transfer method
         @param  useETH           bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown      bool    Whether or not to enable GLP cooldown duration
         @param  useGmx           bool    Whether to use pxGMX
      */
     function testAccrueTransfer(
@@ -598,6 +605,7 @@ contract PirexRewardsTest is Helper {
         uint8 transferPercent,
         bool useTransfer,
         bool useETH,
+        bool hasCooldown,
         bool useGmx
     ) external {
         vm.assume(secondsElapsed > 10);
@@ -611,7 +619,7 @@ contract PirexRewardsTest is Helper {
             ? ERC20(address(pxGmx))
             : ERC20(address(pxGlp));
 
-        _depositForTestAccounts(useGmx, multiplier, useETH);
+        _depositForTestAccounts(useGmx, multiplier, useETH, hasCooldown);
 
         // Perform consecutive transfers in-between test accounts
         for (uint256 i; i < testAccounts.length; ++i) {
@@ -727,7 +735,8 @@ contract PirexRewardsTest is Helper {
         vm.assume(burnPercent <= 100);
 
         // Always deposit for pxGLP for burn tests
-        _depositForTestAccounts(false, multiplier, useETH);
+        // Using equality operator for `hasCooldown` due to "Stack too deep" error
+        _depositForTestAccounts(false, multiplier, useETH, multiplier % 2 == 0);
 
         // Perform burn for all test accounts and assert global rewards accrual
         for (uint256 i; i < testAccounts.length; ++i) {
@@ -809,6 +818,7 @@ contract PirexRewardsTest is Helper {
         @param  rounds             uint8   Number of rounds to fast forward time and accrue rewards
         @param  multiplier         uint8   Multiplied with fixed token amounts for randomness
         @param  useETH             bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown        bool    Whether or not to enable GLP cooldown duration
         @param  additionalDeposit  uint8   Round index when another wave of deposit should be performed
      */
     function testHarvest(
@@ -816,6 +826,7 @@ contract PirexRewardsTest is Helper {
         uint8 rounds,
         uint8 multiplier,
         bool useETH,
+        bool hasCooldown,
         uint8 additionalDeposit
     ) external {
         vm.assume(secondsElapsed > 10);
@@ -828,7 +839,7 @@ contract PirexRewardsTest is Helper {
 
         // Perform initial pxGMX+pxGLP deposits for all test accounts before calling harvest
         _depositGmxForTestAccounts(true, address(this), multiplier);
-        _depositGlpForTestAccounts(true, address(this), multiplier, useETH);
+        _depositGlpForTestAccounts(true, address(this), multiplier, useETH, hasCooldown);
 
         ERC20[] memory expectedProducerTokens = new ERC20[](4);
         ERC20[] memory expectedRewardTokens = new ERC20[](4);
@@ -852,7 +863,8 @@ contract PirexRewardsTest is Helper {
                     true,
                     address(this),
                     multiplier,
-                    useETH
+                    useETH,
+                    hasCooldown
                 );
             }
 
@@ -1337,12 +1349,14 @@ contract PirexRewardsTest is Helper {
         @param  secondsElapsed  uint32  Seconds to forward timestamp
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  useETH          bool    Whether to use ETH when minting
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
         @param  forwardRewards  bool    Whether to forward rewards
      */
     function testClaim(
         uint32 secondsElapsed,
         uint8 multiplier,
         bool useETH,
+        bool hasCooldown,
         bool forwardRewards
     ) external {
         vm.assume(secondsElapsed > 10);
@@ -1351,7 +1365,7 @@ contract PirexRewardsTest is Helper {
         vm.assume(multiplier < 10);
 
         _depositGmxForTestAccounts(true, address(this), multiplier);
-        _depositGlpForTestAccounts(true, address(this), multiplier, useETH);
+        _depositGlpForTestAccounts(true, address(this), multiplier, useETH, hasCooldown);
 
         vm.warp(block.timestamp + secondsElapsed);
 

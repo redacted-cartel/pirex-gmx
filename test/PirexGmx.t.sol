@@ -986,13 +986,15 @@ contract PirexGmxTest is Test, Helper {
         @param  depositFee      uint24  Deposit fee
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  separateCaller  bool    Whether to separate method caller and receiver
-        @param  useETH          bool     Whether or not to use ETH as the source asset for minting GLP
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
     function testDepositGlp(
         uint24 depositFee,
         uint8 multiplier,
         bool separateCaller,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) external {
         vm.assume(depositFee <= feeMax);
         vm.assume(multiplier != 0);
@@ -1014,7 +1016,8 @@ contract PirexGmxTest is Test, Helper {
             separateCaller,
             address(this),
             multiplier,
-            useETH
+            useETH,
+            hasCooldown
         );
 
         // Assign the initial post-deposit values to their pre-deposit counterparts
@@ -1247,11 +1250,13 @@ contract PirexGmxTest is Test, Helper {
         @param  redemptionFee   uint24  Redemption fee
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
     function testRedeemPxGlp(
         uint24 redemptionFee,
         uint8 multiplier,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) external {
         vm.assume(redemptionFee <= feeMax);
         vm.assume(multiplier != 0);
@@ -1263,7 +1268,8 @@ contract PirexGmxTest is Test, Helper {
             false,
             address(this),
             multiplier,
-            useETH
+            useETH,
+            hasCooldown
         );
 
         vm.warp(block.timestamp + 1 days);

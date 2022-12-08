@@ -247,20 +247,28 @@ contract Helper is Test, HelperEvents, HelperState {
 
     /**
         @notice Mint pxGMX or pxGLP for test accounts
-        @param  useGmx      bool     Whether to use pxGMX
-        @param  multiplier  uint256  Multiplied with fixed token amounts (uint256 to avoid overflow)
-        @param  useETH      bool     Whether or not to use ETH as the source asset for minting GLP
+        @param  useGmx       bool     Whether to use pxGMX
+        @param  multiplier   uint256  Multiplied with fixed token amounts (uint256 to avoid overflow)
+        @param  useETH       bool     Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown  bool     Whether or not to enable GLP cooldown duration
 
      */
     function _depositForTestAccounts(
         bool useGmx,
         uint256 multiplier,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) internal {
         if (useGmx) {
             _depositGmxForTestAccounts(true, address(this), multiplier);
         } else {
-            _depositGlpForTestAccounts(true, address(this), multiplier, useETH);
+            _depositGlpForTestAccounts(
+                true,
+                address(this),
+                multiplier,
+                useETH,
+                hasCooldown
+            );
         }
     }
 
@@ -339,8 +347,13 @@ contract Helper is Test, HelperEvents, HelperState {
         bool separateCaller,
         address caller,
         uint256 multiplier,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) internal returns (uint256[] memory depositAmounts) {
+        if (hasCooldown) {
+            _setCooldownDuration(glpManager.MAX_COOLDOWN_DURATION());
+        }
+
         uint256 tLen = testAccounts.length;
 
         // Only used locally to track token amounts used to mint GLP
@@ -358,6 +371,9 @@ contract Helper is Test, HelperEvents, HelperState {
             uint256 deposited;
             uint256 depositPostFeeAmount;
             uint256 depositFeeAmount;
+            address cooldownHandler = address(
+                pirexGmx.pirexGmxCooldownHandler()
+            );
 
             // Conditionally set ETH or wrapped amounts and call the appropriate method for acquiring
             if (useETH) {
@@ -366,9 +382,9 @@ contract Helper is Test, HelperEvents, HelperState {
                 vm.expectEmit(true, true, true, false, address(pirexGmx));
 
                 emit DepositGlp(
-                    caller,
+                    hasCooldown ? cooldownHandler : caller,
                     testAccount,
-                    address(0),
+                    hasCooldown ? address(STAKED_GLP) : address(0),
                     total,
                     1,
                     1,
@@ -390,9 +406,9 @@ contract Helper is Test, HelperEvents, HelperState {
                 vm.expectEmit(true, true, true, false, address(pirexGmx));
 
                 emit DepositGlp(
-                    caller,
+                    hasCooldown ? cooldownHandler : caller,
                     testAccount,
-                    address(weth),
+                    hasCooldown ? address(STAKED_GLP) : address(weth),
                     total,
                     1,
                     1,
@@ -414,6 +430,16 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(deposited, depositPostFeeAmount + feeAmount);
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
+
+            // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
+            // This logic assumes that there were no GLP minted + staked by the PirexGmx prior to this call
+            if (hasCooldown) {
+                assertEq(0, glpManager.lastAddedAt(address(pirexGmx)));
+                assertEq(
+                    block.timestamp,
+                    glpManager.lastAddedAt(cooldownHandler)
+                );
+            }
         }
     }
 

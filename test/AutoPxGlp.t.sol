@@ -125,7 +125,7 @@ contract AutoPxGlpTest is Helper {
 
         // Some tests require different deposit setup, only process those with non-zero multiplier
         if (multiplier > 0) {
-            _depositGlpForTestAccounts(true, address(this), multiplier, true);
+            _depositGlpForTestAccounts(true, address(this), multiplier, true, false);
         }
     }
 
@@ -552,7 +552,8 @@ contract AutoPxGlpTest is Helper {
             false,
             address(this),
             multiplier,
-            true
+            true,
+            false
         );
 
         for (uint256 i; i < testAccounts.length; ++i) {
