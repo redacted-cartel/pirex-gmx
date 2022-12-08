@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/security/Pausable.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ReentrancyGuard} from "src/lib/ReentrancyGuard.sol";
 import {PxERC20} from "src/PxERC20.sol";
 import {PirexFees} from "src/PirexFees.sol";
 import {DelegateRegistry} from "src/external/DelegateRegistry.sol";
@@ -218,6 +218,26 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     modifier onlyPirexRewards() {
         if (msg.sender != pirexRewards) revert NotPirexRewards();
         _;
+    }
+
+    /**
+        @notice Applied to depositFsGlp to enable PirexGmxCooldownHandler to
+                call back and deposit minted + staked GLP on behalf of the user
+    */
+    modifier nonReentrantWithCooldownHandlerException() {
+        if (msg.sender == address(pirexGmxCooldownHandler)) {
+            _;
+
+            return;
+        }
+
+        require(locked == 1, "REENTRANCY");
+
+        locked = 2;
+
+        _;
+
+        locked = 1;
     }
 
     /**
@@ -448,7 +468,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     function depositFsGlp(uint256 amount, address receiver)
         external
         whenNotPaused
-        nonReentrant
+        nonReentrantWithCooldownHandlerException
         returns (
             uint256,
             uint256,
@@ -522,7 +542,15 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
         // Deposit GLP via the cooldown handler contract if GLP cooldowns are enabled
         // Placing the call here reduces redundant parameter validation
-        if (_hasCooldownDuration())
+        if (_hasCooldownDuration()) {
+            // Transfer user ERC20 tokens to cooldown handler contract for depositing
+            if (token != address(0))
+                ERC20(token).safeTransferFrom(
+                    msg.sender,
+                    address(pirexGmxCooldownHandler),
+                    tokenAmount
+                );
+
             return
                 pirexGmxCooldownHandler.depositGlp{value: msg.value}(
                     glpRewardRouterV2,
@@ -534,6 +562,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
                     minGlp,
                     receiver
                 );
+        }
 
         if (token == address(0)) {
             // Mint and stake GLP using ETH

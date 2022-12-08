@@ -54,7 +54,8 @@ contract PirexGmxCooldownHandler {
             ? rewardRouter.mintAndStakeGlpETH{value: msg.value}(minUsdg, minGlp)
             : rewardRouter.mintAndStakeGlp(token, tokenAmount, minUsdg, minGlp);
 
-        stakedGlp.approve(msg.sender, deposited);
+        // Handling stakedGLP approvals for each call in case its updated on PirexGmx
+        stakedGlp.approve(address(pirexGmx), deposited);
 
         return pirexGmx.depositFsGlp(deposited, receiver);
     }
