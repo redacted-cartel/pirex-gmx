@@ -185,8 +185,8 @@ contract Helper is Test, HelperEvents, HelperState {
         pxGlp.grantRole(pxGlp.BURNER_ROLE(), address(pirexGmx));
         pirexRewards.setProducer(address(pirexGmx));
 
-        // Configure GMX state and unpause
-        pirexGmx.configureGmxState();
+        // Initialize GMX state and unpause
+        pirexGmx.initializeGmxState();
         pirexGmx.setPauseState(false);
 
         feeMax = pirexGmx.FEE_MAX();

@@ -85,7 +85,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     // Fees (e.g. 5000 / 1000000 = 0.5%)
     mapping(Fees => uint256) public fees;
 
-    event ConfigureGmxState(
+    event InitializeGmxState(
         address indexed caller,
         RewardTracker rewardTrackerGmx,
         RewardTracker rewardTrackerGlp,
@@ -277,9 +277,9 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     }
 
     /**
-        @notice Configure GMX contract state
+        @notice Initialize GMX contract state
      */
-    function configureGmxState() external onlyOwner whenPaused {
+    function initializeGmxState() external onlyOwner whenPaused {
         // Revoke old staker contract's GMX approval
         if (address(stakedGmx) != address(0)) {
             gmx.safeApprove(address(stakedGmx), 0);
@@ -293,7 +293,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         glpManager = glpRewardRouterV2.glpManager();
         gmxVault = IVault(IGlpManager(glpManager).vault());
 
-        emit ConfigureGmxState(
+        emit InitializeGmxState(
             msg.sender,
             rewardTrackerGmx,
             rewardTrackerGlp,
