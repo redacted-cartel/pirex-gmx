@@ -431,6 +431,7 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(deposited, depositPostFeeAmount + feeAmount);
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
+            assertEq(pxGlp.totalSupply(), feeStakedGlp.balanceOf(address(pirexGmx)));
 
             // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
             // This logic assumes that there were no GLP minted + staked by the PirexGmx prior to this call
