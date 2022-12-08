@@ -223,6 +223,22 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     }
 
     /**
+        @notice Return the maximum amount of assets the specified account can withdraw
+        @param  account  address  Account address
+        @return          uint256  Assets
+     */
+    function maxWithdraw(address account)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        uint256 shares = balanceOf[account];
+
+        return previewRedeem(shares);
+    }
+
+    /**
         @notice Compound pxGMX rewards before depositing
      */
     function beforeDeposit(

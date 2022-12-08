@@ -3,11 +3,14 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {AutoPxGmx} from "src/vaults/AutoPxGmx.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
 import {Helper} from "./Helper.sol";
 
 contract AutoPxGmxTest is Helper {
+    using FixedPointMathLib for uint256;
+
     event PoolFeeUpdated(uint24 _poolFee);
     event Compounded(
         address indexed caller,
@@ -73,6 +76,19 @@ contract AutoPxGmxTest is Helper {
 
         wethRewardState = pirexRewards.getRewardState(pxGmx, weth);
         pxGmxRewardState = pirexRewards.getRewardState(pxGmx, pxGmx);
+    }
+
+    /**
+        @notice Previously faulty version of maxWithdraw
+        @param  account  address  Account address
+        @return          uint256  Max withdraw amount
+     */
+    function _maxWithdrawFaulty(address account)
+        internal
+        view
+        returns (uint256)
+    {
+        return autoPxGmx.convertToAssets(autoPxGmx.balanceOf(account));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -307,7 +323,10 @@ contract AutoPxGmxTest is Helper {
         assertEq(expectedPlatform, autoPxGmx.platform());
         assertTrue(expectedPlatform != initialPlatform);
         assertEq(0, gmx.allowance(address(autoPxGmx), initialPlatform));
-        assertEq(type(uint256).max, gmx.allowance(address(autoPxGmx), platform));
+        assertEq(
+            type(uint256).max,
+            gmx.allowance(address(autoPxGmx), platform)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -329,6 +348,49 @@ contract AutoPxGmxTest is Helper {
 
         assertEq(expectedTotalAssets, autoPxGmx.totalAssets());
         assertTrue(expectedTotalAssets != initialTotalAssets);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        maxWithdraw TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice  Test tx success: return the maximum withdrawable assets
+    */
+    function testMaxWithdraw() external {
+        // Perform deposits for all test accounts first
+        uint256 gmxAmount = 10e18;
+        uint256 secondsElapsed = 1 weeks;
+        address[] memory receivers = new address[](testAccounts.length);
+        for (uint256 i; i < testAccounts.length; ++i) {
+            receivers[i] = testAccounts[i];
+        }
+
+        (, , uint256[] memory shareBalances) = _provisionRewardState(
+            gmxAmount,
+            receivers,
+            secondsElapsed
+        );
+
+        // Check max withdrawal for one of the test accounts
+        uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(receivers[0]);
+        uint256 maxWithdrawAmount = autoPxGmx.maxWithdraw(receivers[0]);
+        uint256 expectedPenalty = autoPxGmx
+            .convertToAssets(shareBalances[0])
+            .mulDivDown(
+                autoPxGmx.withdrawalPenalty(),
+                autoPxGmx.FEE_DENOMINATOR()
+            );
+        uint256 expectedMaxWithdrawAmount = shareBalances[0] - expectedPenalty;
+
+        assertEq(expectedMaxWithdrawAmount, maxWithdrawAmount);
+
+        // Assert that the faulty one results in larger amount (as it doesn't apply penalty)
+        assertLt(maxWithdrawAmount, faultyMaxWithdrawAmount);
+        assertEq(
+            expectedMaxWithdrawAmount,
+            faultyMaxWithdrawAmount - expectedPenalty
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
