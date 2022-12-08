@@ -28,12 +28,7 @@ contract HelperEvents {
         uint256 feeAmount
     );
     event DepositGlp(
-        address indexed caller,
         address indexed receiver,
-        address indexed token,
-        uint256 tokenAmount,
-        uint256 minUsdg,
-        uint256 minGlp,
         uint256 deposited,
         uint256 postFeeAmount,
         uint256 feeAmount

@@ -651,15 +651,10 @@ contract PirexGmxTest is Test, Helper {
             address receiver = testAccount;
 
             vm.prank(caller);
-            vm.expectEmit(true, true, true, false, address(pirexGmx));
+            vm.expectEmit(true, false, false, false, address(pirexGmx));
 
             emit DepositGlp(
-                caller,
                 receiver,
-                address(STAKED_GLP),
-                0,
-                0,
-                0,
                 0,
                 0,
                 0

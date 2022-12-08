@@ -380,15 +380,10 @@ contract Helper is Test, HelperEvents, HelperState {
             if (useETH) {
                 vm.deal(caller, total);
                 vm.prank(caller);
-                vm.expectEmit(true, true, true, false, address(pirexGmx));
+                vm.expectEmit(true, false, false, false, address(pirexGmx));
 
                 emit DepositGlp(
-                    hasCooldown ? cooldownHandler : caller,
                     testAccount,
-                    hasCooldown ? address(STAKED_GLP) : address(0),
-                    total,
-                    1,
-                    1,
                     0,
                     0,
                     0
@@ -404,15 +399,10 @@ contract Helper is Test, HelperEvents, HelperState {
                 weth.approve(address(pirexGmx), total);
 
                 vm.prank(caller);
-                vm.expectEmit(true, true, true, false, address(pirexGmx));
+                vm.expectEmit(true, false, false, false, address(pirexGmx));
 
                 emit DepositGlp(
-                    hasCooldown ? cooldownHandler : caller,
                     testAccount,
-                    hasCooldown ? address(STAKED_GLP) : address(weth),
-                    total,
-                    1,
-                    1,
                     0,
                     0,
                     0
@@ -431,7 +421,10 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(deposited, depositPostFeeAmount + feeAmount);
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
-            assertEq(pxGlp.totalSupply(), feeStakedGlp.balanceOf(address(pirexGmx)));
+            assertEq(
+                pxGlp.totalSupply(),
+                feeStakedGlp.balanceOf(address(pirexGmx))
+            );
 
             // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
             // This logic assumes that there were no GLP minted + staked by the PirexGmx prior to this call
