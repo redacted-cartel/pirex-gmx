@@ -372,9 +372,6 @@ contract Helper is Test, HelperEvents, HelperState {
             uint256 deposited;
             uint256 depositPostFeeAmount;
             uint256 depositFeeAmount;
-            address cooldownHandler = address(
-                pirexGmx.pirexGmxCooldownHandler()
-            );
 
             // Conditionally set ETH or wrapped amounts and call the appropriate method for acquiring
             if (useETH) {
@@ -417,13 +414,13 @@ contract Helper is Test, HelperEvents, HelperState {
             );
 
             // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
-            if (hasCooldown) {
-                assertEq(0, glpManager.lastAddedAt(address(pirexGmx)));
-                assertEq(
-                    block.timestamp,
-                    glpManager.lastAddedAt(cooldownHandler)
-                );
-            }
+            assertEq(0, glpManager.lastAddedAt(address(pirexGmx)));
+            assertEq(
+                block.timestamp,
+                glpManager.lastAddedAt(
+                    address(pirexGmx.pirexGmxCooldownHandler())
+                )
+            );
         }
     }
 

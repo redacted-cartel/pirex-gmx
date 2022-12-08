@@ -335,17 +335,16 @@ contract PirexFeesTest is Helper {
 
         // Perform pxGLP deposit using ETH for all test accounts and assert fees
         for (uint256 i; i < testAccounts.length; ++i) {
-            (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+            (uint256 deposited, , ) = _depositGlpETH(
                 ethAmount,
                 testAccounts[i]
             );
-
             (
                 uint256 expectedDistribution,
                 uint256 expectedTreasuryDistribution,
                 uint256 expectedContributorsDistribution
             ) = _calculateExpectedPirexFeeValues(
-                    postFeeAmount + feeAmount,
+                    deposited,
                     depositFee
                 );
 

@@ -653,12 +653,7 @@ contract PirexGmxTest is Test, Helper {
             vm.prank(caller);
             vm.expectEmit(true, false, false, false, address(pirexGmx));
 
-            emit DepositGlp(
-                receiver,
-                0,
-                0,
-                0
-            );
+            emit DepositGlp(receiver, 0, 0, 0);
 
             (uint256 deposited, uint256 postFeeAmount, ) = pirexGmx
                 .depositFsGlp(assets, receiver);
@@ -1050,11 +1045,10 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: contract is paused
      */
     function testCannotRedeemPxGlpETHPaused() external {
-        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+        (uint256 assets, , ) = _depositGlpETH(
             1 ether,
             address(this)
         );
-        uint256 assets = postFeeAmount + feeAmount;
         uint256 minOut = _calculateMinOutAmount(address(weth), assets);
         address receiver = testAccounts[0];
 
@@ -1109,11 +1103,11 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: minOut is greater than output
      */
     function testCannotRedeemPxGlpETHMinOutInsufficientOutput() external {
-        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
-            1 ether,
-            address(this)
-        );
-        uint256 assets = postFeeAmount + feeAmount;
+        (
+            uint256 assets,
+            ,
+
+        ) = _depositGlpETH(1 ether, address(this));
         uint256 invalidMinOut = _calculateMinOutAmount(address(weth), assets) *
             2;
         address receiver = testAccounts[0];
@@ -1138,11 +1132,10 @@ contract PirexGmxTest is Test, Helper {
     function testCannotRedeemPxGlpPaused() external {
         uint256 etherAmount = 1 ether;
         address token = address(weth);
-        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+        (uint256 assets, , ) = _depositGlpETH(
             etherAmount,
             address(this)
         );
-        uint256 assets = postFeeAmount + feeAmount;
         uint256 minOut = _calculateMinOutAmount(token, assets);
         address receiver = testAccounts[0];
 
