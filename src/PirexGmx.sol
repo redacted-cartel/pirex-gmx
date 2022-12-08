@@ -85,7 +85,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     // Fees (e.g. 5000 / 1000000 = 0.5%)
     mapping(Fees => uint256) public fees;
 
-    event ConfigureGmxState(
+    event InitializeGmxState(
         address indexed caller,
         RewardTracker rewardTrackerGmx,
         RewardTracker rewardTrackerGlp,
@@ -250,6 +250,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             r = useGmx ? stakedGmx : feeStakedGlp;
         }
 
+        uint256 totalSupply = r.totalSupply();
+
+        if (totalSupply == 0) return 0;
+
         address distributor = r.distributor();
         uint256 pendingRewards = IRewardDistributor(distributor)
             .pendingRewards();
@@ -260,7 +264,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             : pendingRewards;
         uint256 precision = r.PRECISION();
         uint256 cumulativeRewardPerToken = r.cumulativeRewardPerToken() +
-            ((blockReward * precision) / r.totalSupply());
+            ((blockReward * precision) / totalSupply);
 
         if (cumulativeRewardPerToken == 0) return 0;
 
@@ -273,9 +277,9 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     }
 
     /**
-        @notice Configure GMX contract state
+        @notice Initialize GMX contract state
      */
-    function configureGmxState() external onlyOwner whenPaused {
+    function initializeGmxState() external onlyOwner whenPaused {
         // Variables which can be assigned by reading previously-set GMX contracts
         rewardTrackerGmx = RewardTracker(gmxRewardRouterV2.feeGmxTracker());
         rewardTrackerGlp = RewardTracker(glpRewardRouterV2.feeGlpTracker());
@@ -284,7 +288,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         glpManager = glpRewardRouterV2.glpManager();
         gmxVault = IVault(IGlpManager(glpManager).vault());
 
-        emit ConfigureGmxState(
+        emit InitializeGmxState(
             msg.sender,
             rewardTrackerGmx,
             rewardTrackerGlp,
@@ -513,14 +517,22 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         } else {
             ERC20 t = ERC20(token);
 
-            // Intake user ERC20 tokens and approve GLP Manager contract for amount
+            uint256 preTransferBalance = t.balanceOf(address(this));
+
+            // Intake user ERC20 tokens
             t.safeTransferFrom(msg.sender, address(this), tokenAmount);
-            t.safeApprove(glpManager, tokenAmount);
+
+            uint256 transferredAmount = t.balanceOf(address(this)) - preTransferBalance;
+
+            if (transferredAmount == 0) revert ZeroAmount();
+
+            // Approve GLP Manager contract with the actual amount transferred
+            t.safeApprove(glpManager, transferredAmount);
 
             // Mint and stake GLP using ERC20 tokens
             deposited = glpRewardRouterV2.mintAndStakeGlp(
                 token,
-                tokenAmount,
+                transferredAmount,
                 minUsdg,
                 minGlp
             );

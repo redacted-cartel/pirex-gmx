@@ -9,7 +9,7 @@ import {IVault} from "src/interfaces/IVault.sol";
 
 contract HelperEvents {
     // PirexGmx events
-    event ConfigureGmxState(
+    event InitializeGmxState(
         address indexed caller,
         RewardTracker rewardTrackerGmx,
         RewardTracker rewardTrackerGlp,
