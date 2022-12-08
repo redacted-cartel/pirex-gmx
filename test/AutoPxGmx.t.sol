@@ -373,8 +373,9 @@ contract AutoPxGmxTest is Helper {
         );
 
         // Check max withdrawal for one of the test accounts
-        uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(receivers[0]);
-        uint256 maxWithdrawAmount = autoPxGmx.maxWithdraw(receivers[0]);
+        address account = receivers[0];
+        uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(account);
+        uint256 maxWithdrawAmount = autoPxGmx.maxWithdraw(account);
         uint256 expectedPenalty = autoPxGmx
             .convertToAssets(shareBalances[0])
             .mulDivDown(

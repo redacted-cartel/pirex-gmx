@@ -201,6 +201,22 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     }
 
     /**
+        @notice Return the maximum amount of assets the specified account can withdraw
+        @param  account  address  Account address
+        @return          uint256  Assets
+     */
+    function maxWithdraw(address account)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        uint256 shares = balanceOf[account];
+
+        return previewRedeem(shares);
+    }
+
+    /**
         @notice Compound pxGLP (and additionally pxGMX) rewards
         @param  minUsdg                uint256  Minimum USDG amount used when minting GLP
         @param  minGlp                 uint256  Minimum GLP amount received from the WETH deposit

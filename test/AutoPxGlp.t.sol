@@ -3,12 +3,15 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {AutoPxGlp} from "src/vaults/AutoPxGlp.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
 import {PxGmxReward} from "src/vaults/PxGmxReward.sol";
 import {Helper} from "./Helper.sol";
 
 contract AutoPxGlpTest is Helper {
+    using FixedPointMathLib for uint256;
+
     event Deposit(
         address indexed caller,
         address indexed owner,
@@ -346,6 +349,19 @@ contract AutoPxGlpTest is Helper {
         );
     }
 
+    /**
+        @notice Previously faulty version of maxWithdraw
+        @param  account  address  Account address
+        @return          uint256  Max withdraw amount
+     */
+    function _maxWithdrawFaulty(address account)
+        internal
+        view
+        returns (uint256)
+    {
+        return autoPxGlp.convertToAssets(autoPxGlp.balanceOf(account));
+    }
+
     /*//////////////////////////////////////////////////////////////
                         setWithdrawalPenalty TESTS
     //////////////////////////////////////////////////////////////*/
@@ -532,7 +548,10 @@ contract AutoPxGlpTest is Helper {
         assertEq(expectedPlatform, autoPxGlp.platform());
         assertTrue(expectedPlatform != initialPlatform);
         assertEq(0, weth.allowance(address(autoPxGlp), initialPlatform));
-        assertEq(type(uint256).max, weth.allowance(address(autoPxGlp), platform));
+        assertEq(
+            type(uint256).max,
+            weth.allowance(address(autoPxGlp), platform)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -574,6 +593,44 @@ contract AutoPxGlpTest is Helper {
 
         assertEq(assets, autoPxGlp.totalAssets());
         assertTrue(assets != initialTotalAssets);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        maxWithdraw TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice  Test tx success: return the maximum withdrawable assets
+    */
+    function testMaxWithdraw() external {
+        // Perform deposits for all test accounts first
+        _setupRewardsAndTestAccounts(1);
+
+        for (uint256 i; i < testAccounts.length; ++i) {
+            _depositToVault(testAccounts[i]);
+        }
+
+        // Check max withdrawal for one of the test accounts
+        address account = testAccounts[0];
+        uint256 shareBalance = autoPxGlp.balanceOf(account);
+        uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(account);
+        uint256 maxWithdrawAmount = autoPxGlp.maxWithdraw(account);
+        uint256 expectedPenalty = autoPxGlp
+            .convertToAssets(shareBalance)
+            .mulDivDown(
+                autoPxGlp.withdrawalPenalty(),
+                autoPxGlp.FEE_DENOMINATOR()
+            );
+        uint256 expectedMaxWithdrawAmount = shareBalance - expectedPenalty;
+
+        assertEq(expectedMaxWithdrawAmount, maxWithdrawAmount);
+
+        // Assert that the faulty one results in larger amount (as it doesn't apply penalty)
+        assertLt(maxWithdrawAmount, faultyMaxWithdrawAmount);
+        assertEq(
+            expectedMaxWithdrawAmount,
+            faultyMaxWithdrawAmount - expectedPenalty
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
