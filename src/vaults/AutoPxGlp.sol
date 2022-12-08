@@ -394,6 +394,8 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
 
         // Approve as needed here since it can be a new whitelisted token (unless it's the baseReward)
         if (erc20Token != gmxBaseReward) {
+            // Reset allowances before approving using the new amount
+            erc20Token.safeApprove(platform, 0);
             erc20Token.safeApprove(platform, tokenAmount);
         }
 

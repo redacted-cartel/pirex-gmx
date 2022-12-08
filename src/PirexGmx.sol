@@ -515,6 +515,8 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
             // Intake user ERC20 tokens and approve GLP Manager contract for amount
             t.safeTransferFrom(msg.sender, address(this), tokenAmount);
+            // Reset allowances before approving using the new amount
+            t.safeApprove(glpManager, 0);
             t.safeApprove(glpManager, tokenAmount);
 
             // Mint and stake GLP using ERC20 tokens
