@@ -59,8 +59,6 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     // Pirex fee repository and distribution contract
     PirexFees public pirexFees;
 
-    // NOTE: Immutable since it uses the same method calls as PirexGmx...
-    // if it needs to be updated, then PirexGmx would also
     // Handles deposits to circumvent the GLP cooldown duration
     // to maintain a seamless deposit and redemption experience for users
     PirexGmxCooldownHandler public immutable pirexGmxCooldownHandler;

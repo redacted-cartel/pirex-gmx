@@ -1050,7 +1050,7 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: contract is paused
      */
     function testCannotRedeemPxGlpETHPaused() external {
-        (uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
             1 ether,
             address(this)
         );
@@ -1109,7 +1109,7 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: minOut is greater than output
      */
     function testCannotRedeemPxGlpETHMinOutInsufficientOutput() external {
-        (uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
             1 ether,
             address(this)
         );
@@ -1138,7 +1138,7 @@ contract PirexGmxTest is Test, Helper {
     function testCannotRedeemPxGlpPaused() external {
         uint256 etherAmount = 1 ether;
         address token = address(weth);
-        (uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
+        (, uint256 postFeeAmount, uint256 feeAmount) = _depositGlpETH(
             etherAmount,
             address(this)
         );
@@ -1266,9 +1266,6 @@ contract PirexGmxTest is Test, Helper {
             useETH,
             hasCooldown
         );
-
-        vm.warp(block.timestamp + 1 days);
-
         uint256 tLen = testAccounts.length;
         uint256 totalDeposits;
 
@@ -2072,9 +2069,6 @@ contract PirexGmxTest is Test, Helper {
         vm.deal(address(this), etherAmount);
 
         pirexGmx.depositGlpETH{value: etherAmount}(1, 1, receiver);
-
-        // Time skip to bypass the cooldown duration
-        vm.warp(block.timestamp + 1 days);
 
         // Store the staked balances and rewards for later validations
         uint256 oldStakedGmxBalance = rewardTrackerGmx.balanceOf(oldContract);

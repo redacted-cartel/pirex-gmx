@@ -799,10 +799,9 @@ contract AutoPxGlpTest is Helper {
             uint256 initialPxGmxBalance = pxGmx.balanceOf(address(autoPxGlp));
 
             // Perform another deposit and assert the updated pxGMX reward states
-            _depositGlpETHWithTimeSkip(
+            _depositGlpETH(
                 (1 ether * (i + 1) * multiplier),
-                testAccounts[i],
-                0
+                testAccounts[i]
             );
 
             uint256 newShares = _depositToVault(testAccounts[i]);
@@ -930,10 +929,9 @@ contract AutoPxGlpTest is Helper {
             uint256 initialPxGmxBalance = pxGmx.balanceOf(address(autoPxGlp));
 
             // Perform another deposit and assert the updated pxGMX reward states
-            _depositGlpETHWithTimeSkip(
+            _depositGlpETH(
                 (1 ether * (i + 1) * multiplier),
-                testAccounts[i],
-                0
+                testAccounts[i]
             );
 
             uint256 newShares = _depositToVault(testAccounts[i]);
@@ -1136,10 +1134,9 @@ contract AutoPxGlpTest is Helper {
             uint256 initialPxGmxBalance = pxGmx.balanceOf(address(autoPxGlp));
 
             // Perform another deposit and assert the updated pxGMX reward states
-            _depositGlpETHWithTimeSkip(
+            _depositGlpETH(
                 (1 ether * (i + 1) * multiplier),
-                testAccounts[i],
-                0
+                testAccounts[i]
             );
 
             uint256 newShares = _depositToVault(testAccounts[i]);
@@ -1301,10 +1298,9 @@ contract AutoPxGlpTest is Helper {
             uint256 initialPxGmxBalance = pxGmx.balanceOf(address(autoPxGlp));
 
             // Perform another deposit and assert the updated pxGMX reward states
-            _depositGlpETHWithTimeSkip(
+            _depositGlpETH(
                 (1 ether * (i + 1) * multiplier),
-                testAccounts[i],
-                0
+                testAccounts[i]
             );
 
             uint256 newShares = _depositToVault(testAccounts[i]);
@@ -1381,10 +1377,9 @@ contract AutoPxGlpTest is Helper {
             uint256 initialPxGmxBalance = pxGmx.balanceOf(address(autoPxGlp));
 
             // Perform mint instead of deposit and assert the updated pxGMX reward states
-            _depositGlpETHWithTimeSkip(
+            _depositGlpETH(
                 (1 ether * (i + 1) * multiplier),
-                testAccounts[i],
-                0
+                testAccounts[i]
             );
 
             vm.startPrank(testAccounts[i]);

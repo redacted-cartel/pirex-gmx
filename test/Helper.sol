@@ -382,12 +382,7 @@ contract Helper is Test, HelperEvents, HelperState {
                 vm.prank(caller);
                 vm.expectEmit(true, false, false, false, address(pirexGmx));
 
-                emit DepositGlp(
-                    testAccount,
-                    0,
-                    0,
-                    0
-                );
+                emit DepositGlp(testAccount, 0, 0, 0);
 
                 (deposited, depositPostFeeAmount, depositFeeAmount) = pirexGmx
                     .depositGlpETH{value: total}(1, 1, testAccount);
@@ -401,12 +396,7 @@ contract Helper is Test, HelperEvents, HelperState {
                 vm.prank(caller);
                 vm.expectEmit(true, false, false, false, address(pirexGmx));
 
-                emit DepositGlp(
-                    testAccount,
-                    0,
-                    0,
-                    0
-                );
+                emit DepositGlp(testAccount, 0, 0, 0);
 
                 (deposited, depositPostFeeAmount, depositFeeAmount) = pirexGmx
                     .depositGlp(address(weth), total, 1, 1, testAccount);
@@ -427,7 +417,6 @@ contract Helper is Test, HelperEvents, HelperState {
             );
 
             // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
-            // This logic assumes that there were no GLP minted + staked by the PirexGmx prior to this call
             if (hasCooldown) {
                 assertEq(0, glpManager.lastAddedAt(address(pirexGmx)));
                 assertEq(
@@ -487,8 +476,6 @@ contract Helper is Test, HelperEvents, HelperState {
         vm.startPrank(receiver);
 
         fsGlp = GLP_REWARD_ROUTER_V2.mintAndStakeGlpETH{value: ethAmount}(1, 1);
-
-        vm.warp(block.timestamp + 1 hours);
 
         STAKED_GLP.approve(address(pirexGmx), fsGlp);
 
@@ -701,39 +688,23 @@ contract Helper is Test, HelperEvents, HelperState {
 
     /**
         @notice Deposit ETH for pxGLP for testing purposes
-        @param  etherAmount     uint256  Amount of ETH
-        @param  receiver        address  Receiver of pxGLP
-        @param  secondsElapsed  uint32   Seconds to forward timestamp
-        @return postFeeAmount   uint256  pxGLP minted for the receiver
-        @return feeAmount       uint256  pxGLP distributed as fees
-     */
-    function _depositGlpETHWithTimeSkip(
-        uint256 etherAmount,
-        address receiver,
-        uint256 secondsElapsed
-    ) internal returns (uint256 postFeeAmount, uint256 feeAmount) {
-        vm.deal(address(this), etherAmount);
-
-        (, postFeeAmount, feeAmount) = pirexGmx.depositGlpETH{
-            value: etherAmount
-        }(1, 1, receiver);
-
-        vm.warp(block.timestamp + secondsElapsed);
-    }
-
-    /**
-        @notice Deposit ETH for pxGLP for testing purposes
         @param  etherAmount    uint256  Amount of ETH
         @param  receiver       address  Receiver of pxGLP
+        @return deposited      uint256  GLP deposited
         @return postFeeAmount  uint256  pxGLP minted for the receiver
         @return feeAmount      uint256  pxGLP distributed as fees
      */
     function _depositGlpETH(uint256 etherAmount, address receiver)
         internal
-        returns (uint256 postFeeAmount, uint256 feeAmount)
+        returns (
+            uint256 deposited,
+            uint256 postFeeAmount,
+            uint256 feeAmount
+        )
     {
-        // Use the standard 1-hour time skip
-        return _depositGlpETHWithTimeSkip(etherAmount, receiver, 1 hours);
+        vm.deal(address(this), etherAmount);
+
+        return pirexGmx.depositGlpETH{value: etherAmount}(1, 1, receiver);
     }
 
     /**
@@ -762,9 +733,6 @@ contract Helper is Test, HelperEvents, HelperState {
             1,
             receiver
         );
-
-        // Time skip to bypass the cooldown duration
-        vm.warp(block.timestamp + 1 hours);
     }
 
     /**
