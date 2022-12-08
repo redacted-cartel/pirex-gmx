@@ -358,6 +358,19 @@ contract AutoPxGlpTest is Helper {
         );
     }
 
+    /**
+        @notice Previously faulty version of maxWithdraw
+        @param  account  address  Account address
+        @return          uint256  Max withdraw amount
+     */
+    function _maxWithdrawFaulty(address account)
+        internal
+        view
+        returns (uint256)
+    {
+        return autoPxGlp.convertToAssets(autoPxGlp.balanceOf(account));
+    }
+
     /*//////////////////////////////////////////////////////////////
                         setWithdrawalPenalty TESTS
     //////////////////////////////////////////////////////////////*/
@@ -543,6 +556,11 @@ contract AutoPxGlpTest is Helper {
 
         assertEq(expectedPlatform, autoPxGlp.platform());
         assertTrue(expectedPlatform != initialPlatform);
+        assertEq(0, weth.allowance(address(autoPxGlp), initialPlatform));
+        assertEq(
+            type(uint256).max,
+            weth.allowance(address(autoPxGlp), platform)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -585,6 +603,41 @@ contract AutoPxGlpTest is Helper {
 
         assertEq(assets, autoPxGlp.totalAssets());
         assertTrue(assets != initialTotalAssets);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        maxWithdraw TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice  Test tx success: return the maximum withdrawable assets
+    */
+    function testMaxWithdraw() external {
+        // Perform deposits for all test accounts first
+        _setupRewardsAndTestAccounts(1, false, false);
+
+        for (uint256 i; i < testAccounts.length; ++i) {
+            _depositToVault(testAccounts[i]);
+        }
+
+        // Check max withdrawal for one of the test accounts
+        address account = testAccounts[0];
+        uint256 shareBalance = autoPxGlp.balanceOf(account);
+        uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(account);
+        uint256 maxWithdrawAmount = autoPxGlp.maxWithdraw(account);
+        uint256 expectedPenalty = autoPxGlp
+            .convertToAssets(shareBalance)
+            - autoPxGlp.previewRedeem(shareBalance);
+        uint256 expectedMaxWithdrawAmount = shareBalance - expectedPenalty;
+
+        assertEq(expectedMaxWithdrawAmount, maxWithdrawAmount);
+
+        // Assert that the faulty one results in larger amount (as it doesn't apply penalty)
+        assertLt(maxWithdrawAmount, faultyMaxWithdrawAmount);
+        assertEq(
+            expectedMaxWithdrawAmount,
+            faultyMaxWithdrawAmount - expectedPenalty
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

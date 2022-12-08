@@ -130,6 +130,10 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     function setPlatform(address _platform) external onlyOwner {
         if (_platform == address(0)) revert ZeroAddress();
 
+        // Update base reward transfer allowance for the old and new platforms
+        gmxBaseReward.safeApprove(platform, 0);
+        gmxBaseReward.safeApprove(_platform, type(uint256).max);
+
         platform = _platform;
 
         emit PlatformUpdated(_platform);
@@ -171,8 +175,8 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     /**
         @notice Preview the amount of shares a user would need to redeem the specified asset amount
         @notice This modified version takes into consideration the withdrawal fee
-        @param  assets   uint256  Assets amount
-        @return          uint256  Shares amount
+        @param  assets  uint256  Assets amount
+        @return         uint256  Shares amount
      */
     function previewWithdraw(uint256 assets)
         public
@@ -190,8 +194,24 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         return
             (_totalSupply == 0 || _totalSupply - shares == 0)
                 ? shares
-                : (shares * FEE_DENOMINATOR) /
-                    (FEE_DENOMINATOR - withdrawalPenalty);
+                : shares.mulDivUp(
+                    FEE_DENOMINATOR,
+                    FEE_DENOMINATOR - withdrawalPenalty
+                );
+    }
+
+    /**
+        @notice Return the maximum amount of assets the specified account can withdraw
+        @param  account  address  Account address
+        @return          uint256  Assets
+     */
+    function maxWithdraw(address account)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        return previewRedeem(balanceOf[account]);
     }
 
     /**
@@ -381,19 +401,24 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
 
         // PirexGmx will do the check whether the token is whitelisted or not
         ERC20 erc20Token = ERC20(token);
+        uint256 preTransferBalance = erc20Token.balanceOf(address(this));
 
         // Transfer token from the caller to the vault
         // before approving PirexGmx to proceed with the deposit
         erc20Token.safeTransferFrom(msg.sender, address(this), tokenAmount);
 
+        uint256 transferredAmount = erc20Token.balanceOf(address(this)) - preTransferBalance;
+
+        if (transferredAmount == 0) revert ZeroAmount();
+
         // Approve as needed here since it can be a new whitelisted token (unless it's the baseReward)
         if (erc20Token != gmxBaseReward) {
-            erc20Token.safeApprove(platform, tokenAmount);
+            erc20Token.safeApprove(platform, transferredAmount);
         }
 
         (, uint256 assets, ) = PirexGmx(platform).depositGlp(
             token,
-            tokenAmount,
+            transferredAmount,
             minUsdg,
             minGlp,
             address(this)

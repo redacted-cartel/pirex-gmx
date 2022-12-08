@@ -152,6 +152,10 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     function setPlatform(address _platform) external onlyOwner {
         if (_platform == address(0)) revert ZeroAddress();
 
+        // Update GMX transfer allowance for the old and new platforms
+        gmx.safeApprove(platform, 0);
+        gmx.safeApprove(_platform, type(uint256).max);
+
         platform = _platform;
 
         emit PlatformUpdated(_platform);
@@ -193,8 +197,8 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     /**
         @notice Preview the amount of shares a user would need to redeem the specified asset amount
         @notice This modified version takes into consideration the withdrawal fee
-        @param  assets  uint256  Assets
-        @return uint256  Shares
+        @param  assets   uint256  Assets
+        @return          uint256  Shares
      */
     function previewWithdraw(uint256 assets)
         public
@@ -212,8 +216,24 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         return
             (_totalSupply == 0 || _totalSupply - shares == 0)
                 ? shares
-                : (shares * FEE_DENOMINATOR) /
-                    (FEE_DENOMINATOR - withdrawalPenalty);
+                : shares.mulDivUp(
+                    FEE_DENOMINATOR,
+                    FEE_DENOMINATOR - withdrawalPenalty
+                );
+    }
+
+    /**
+        @notice Return the maximum amount of assets the specified account can withdraw
+        @param  account  address  Account address
+        @return          uint256  Assets
+     */
+    function maxWithdraw(address account)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        return previewRedeem(balanceOf[account]);
     }
 
     /**

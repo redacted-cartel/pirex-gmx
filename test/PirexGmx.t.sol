@@ -99,36 +99,36 @@ contract PirexGmxTest is Test, Helper {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            configureGmxState TESTS
+                            initializeGmxState TESTS
     //////////////////////////////////////////////////////////////*/
 
     /**
         @notice Test tx reversion: caller is unauthorized
      */
-    function testCannotConfigureGmxStateUnauthorized() external {
+    function testCannotInitializeGmxStateUnauthorized() external {
         address unauthorizedCaller = _getUnauthorizedCaller();
 
         vm.expectRevert(UNAUTHORIZED_ERROR);
         vm.prank(unauthorizedCaller);
 
-        pirexGmx.configureGmxState();
+        pirexGmx.initializeGmxState();
     }
 
     /**
         @notice Test tx reversion: contract is not paused
      */
-    function testCannotConfigureGmxStateNotPaused() external {
+    function testCannotInitializeGmxStateNotPaused() external {
         assertEq(false, pirexGmx.paused());
 
         vm.expectRevert(NOT_PAUSED_ERROR);
 
-        pirexGmx.configureGmxState();
+        pirexGmx.initializeGmxState();
     }
 
     /**
         @notice Test tx success: configure GMX state
      */
-    function testConfigureGmxState() external {
+    function testInitializeGmxState() external {
         PirexGmx freshPirexGmx = new PirexGmx(
             address(pxGmx),
             address(pxGlp),
@@ -158,7 +158,7 @@ contract PirexGmxTest is Test, Helper {
 
         vm.expectEmit(true, false, false, true, address(freshPirexGmx));
 
-        emit ConfigureGmxState(
+        emit InitializeGmxState(
             address(this),
             rewardTrackerGmx,
             rewardTrackerGlp,
@@ -168,7 +168,7 @@ contract PirexGmxTest is Test, Helper {
             gmxVault
         );
 
-        freshPirexGmx.configureGmxState();
+        freshPirexGmx.initializeGmxState();
 
         assertEq(
             address(rewardTrackerGmx),
