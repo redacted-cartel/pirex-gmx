@@ -569,21 +569,22 @@ contract AutoPxGlpTest is Helper {
 
     /**
         @notice Test tx success: return the total assets
-        @param  multiplier  uint8  Multiplied with fixed token amounts for randomness
+        @param  multiplier      uint8  Multiplied with fixed token amounts for randomness
+        @param  useETH          bool   Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool   Whether or not to enable GLP cooldown duration
     */
-    function testTotalAssets(uint8 multiplier) external {
+    function testTotalAssets(uint8 multiplier, bool useETH, bool hasCooldown) external {
         vm.assume(multiplier != 0);
         vm.assume(multiplier < 10);
 
         uint256 initialTotalAssets = autoPxGlp.totalAssets();
-
         uint256 totalDeposit;
         uint256[] memory depositAmounts = _depositGlpForTestAccounts(
             false,
             address(this),
             multiplier,
-            true,
-            false
+            useETH,
+            hasCooldown
         );
 
         for (uint256 i; i < testAccounts.length; ++i) {
@@ -1453,6 +1454,7 @@ contract AutoPxGlpTest is Helper {
                 uint256 wethRewardState,
                 uint256 pxGmxRewardState
             ) = _provisionRewardState(secondsElapsed);
+
 
             uint256 initialBalance = autoPxGlp.balanceOf(testAccounts[i]);
             uint256 initialRewardState = autoPxGlp.rewardState();

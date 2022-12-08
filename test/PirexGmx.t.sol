@@ -1045,10 +1045,7 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: contract is paused
      */
     function testCannotRedeemPxGlpETHPaused() external {
-        (uint256 assets, , ) = _depositGlpETH(
-            1 ether,
-            address(this)
-        );
+        (uint256 assets, , ) = _depositGlpETH(1 ether, address(this));
         uint256 minOut = _calculateMinOutAmount(address(weth), assets);
         address receiver = testAccounts[0];
 
@@ -1103,11 +1100,7 @@ contract PirexGmxTest is Test, Helper {
         @notice Test tx reversion: minOut is greater than output
      */
     function testCannotRedeemPxGlpETHMinOutInsufficientOutput() external {
-        (
-            uint256 assets,
-            ,
-
-        ) = _depositGlpETH(1 ether, address(this));
+        (uint256 assets, , ) = _depositGlpETH(1 ether, address(this));
         uint256 invalidMinOut = _calculateMinOutAmount(address(weth), assets) *
             2;
         address receiver = testAccounts[0];
@@ -1132,10 +1125,7 @@ contract PirexGmxTest is Test, Helper {
     function testCannotRedeemPxGlpPaused() external {
         uint256 etherAmount = 1 ether;
         address token = address(weth);
-        (uint256 assets, , ) = _depositGlpETH(
-            etherAmount,
-            address(this)
-        );
+        (uint256 assets, , ) = _depositGlpETH(etherAmount, address(this));
         uint256 minOut = _calculateMinOutAmount(token, assets);
         address receiver = testAccounts[0];
 
@@ -1287,6 +1277,13 @@ contract PirexGmxTest is Test, Helper {
             );
             address token = address(weth);
 
+            assertEq(
+                0,
+                useETH
+                    ? address(testAccount).balance
+                    : weth.balanceOf(testAccount)
+            );
+
             vm.startPrank(testAccount);
 
             pxGlp.approve(address(pirexGmx), depositAmount);
@@ -1304,7 +1301,7 @@ contract PirexGmxTest is Test, Helper {
                 0
             );
 
-            (, uint256 returnedPostFeeAmount, ) = useETH
+            (uint256 redeemed, uint256 returnedPostFeeAmount, ) = useETH
                 ? pirexGmx.redeemPxGlpETH(
                     depositAmount,
                     _calculateMinOutAmount(token, postFeeAmount),
@@ -1321,6 +1318,13 @@ contract PirexGmxTest is Test, Helper {
 
             expectedPostRedeemGlpBalancePirexGmx -= returnedPostFeeAmount;
             expectedPostRedeemPxGlpSupply -= returnedPostFeeAmount;
+
+            // Check user redeemed-token balance
+            if (useETH) {
+                assertEq(redeemed, address(testAccount).balance);
+            } else {
+                assertEq(redeemed, weth.balanceOf(testAccount));
+            }
         }
 
         assertEq(
@@ -1328,6 +1332,11 @@ contract PirexGmxTest is Test, Helper {
             feeStakedGlp.balanceOf(address(pirexGmx))
         );
         assertEq(expectedPostRedeemPxGlpSupply, pxGlp.totalSupply());
+        assertGt(
+            block.timestamp,
+            glpManager.lastAddedAt(address(pirexGmx)) +
+                glpManager.cooldownDuration()
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

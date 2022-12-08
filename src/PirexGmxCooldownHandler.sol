@@ -17,7 +17,7 @@ contract PirexGmxCooldownHandler {
     }
 
     /**
-        @notice Deposit GLP (minted with ERC20 tokens) on behalf of a user and deposit into PirexGmx
+        @notice Mint + stake GLP and deposit them into PirexGmx on behalf of a user
         @param  rewardRouter  IRewardRouterV2  GLP Reward Router interface instance
         @param  stakedGlp     IStakedGlp       StakedGlp interface instance
         @param  glpManager    address          GlpManager contract address
