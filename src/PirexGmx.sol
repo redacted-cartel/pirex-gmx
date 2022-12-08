@@ -280,11 +280,6 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         @notice Initialize GMX contract state
      */
     function initializeGmxState() external onlyOwner whenPaused {
-        // Revoke old staker contract's GMX approval
-        if (address(stakedGmx) != address(0)) {
-            gmx.safeApprove(address(stakedGmx), 0);
-        }
-
         // Variables which can be assigned by reading previously-set GMX contracts
         rewardTrackerGmx = RewardTracker(gmxRewardRouterV2.feeGmxTracker());
         rewardTrackerGlp = RewardTracker(glpRewardRouterV2.feeGlpTracker());
