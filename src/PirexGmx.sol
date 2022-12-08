@@ -231,6 +231,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             return;
         }
 
+        // Unchanged from ReentrancyGuard's nonReentrant modifier
         require(locked == 1, "REENTRANCY");
 
         locked = 2;
