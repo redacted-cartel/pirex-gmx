@@ -233,9 +233,7 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         override
         returns (uint256)
     {
-        uint256 shares = balanceOf[account];
-
-        return previewRedeem(shares);
+        return previewRedeem(balanceOf[account]);
     }
 
     /**

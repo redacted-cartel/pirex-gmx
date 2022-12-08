@@ -211,9 +211,7 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         override
         returns (uint256)
     {
-        uint256 shares = balanceOf[account];
-
-        return previewRedeem(shares);
+        return previewRedeem(balanceOf[account]);
     }
 
     /**
