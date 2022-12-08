@@ -3,14 +3,11 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {AutoPxGmx} from "src/vaults/AutoPxGmx.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
 import {Helper} from "./Helper.sol";
 
 contract AutoPxGmxTest is Helper {
-    using FixedPointMathLib for uint256;
-
     event PoolFeeUpdated(uint24 _poolFee);
     event Compounded(
         address indexed caller,
@@ -376,12 +373,8 @@ contract AutoPxGmxTest is Helper {
         address account = receivers[0];
         uint256 faultyMaxWithdrawAmount = _maxWithdrawFaulty(account);
         uint256 maxWithdrawAmount = autoPxGmx.maxWithdraw(account);
-        uint256 expectedPenalty = autoPxGmx
-            .convertToAssets(shareBalances[0])
-            .mulDivDown(
-                autoPxGmx.withdrawalPenalty(),
-                autoPxGmx.FEE_DENOMINATOR()
-            );
+        uint256 expectedPenalty = autoPxGmx.convertToAssets(shareBalances[0]) -
+            autoPxGmx.previewRedeem(shareBalances[0]);
         uint256 expectedMaxWithdrawAmount = shareBalances[0] - expectedPenalty;
 
         assertEq(expectedMaxWithdrawAmount, maxWithdrawAmount);
