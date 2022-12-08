@@ -218,14 +218,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
                 call back and deposit minted + staked GLP on behalf of the user
     */
     modifier nonReentrantWithCooldownHandlerException() {
-        if (msg.sender == address(pirexGmxCooldownHandler)) {
-            _;
-
-            return;
-        }
-
-        // Unchanged from ReentrancyGuard's nonReentrant modifier
-        require(locked == 1, "REENTRANCY");
+        require(
+            msg.sender == address(pirexGmxCooldownHandler) || locked == 1,
+            "REENTRANCY"
+        );
 
         locked = 2;
 
