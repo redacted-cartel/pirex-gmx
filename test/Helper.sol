@@ -466,7 +466,7 @@ contract Helper is Test, HelperEvents, HelperState {
         vm.deal(receiver, ethAmount);
         vm.startPrank(receiver);
 
-        fsGlp = REWARD_ROUTER_V2.mintAndStakeGlpETH{value: ethAmount}(1, 1);
+        fsGlp = GLP_REWARD_ROUTER_V2.mintAndStakeGlpETH{value: ethAmount}(1, 1);
 
         vm.warp(block.timestamp + 1 hours);
 
