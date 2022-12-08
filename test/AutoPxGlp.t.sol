@@ -115,9 +115,15 @@ contract AutoPxGlpTest is Helper {
 
     /**
         @notice Perform common setup for reward accrual and test accounts for vault tests
-        @param  multiplier  uint8  Multiplied with fixed token amounts for randomness
+        @param  multiplier   uint8  Multiplied with fixed token amounts for randomness
+        @param  useETH       bool   Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown  bool   Whether or not to enable GLP cooldown duration
      */
-    function _setupRewardsAndTestAccounts(uint8 multiplier) internal {
+    function _setupRewardsAndTestAccounts(
+        uint8 multiplier,
+        bool useETH,
+        bool hasCooldown
+    ) internal {
         pirexRewards.addRewardToken(pxGmx, weth);
         pirexRewards.addRewardToken(pxGmx, pxGmx);
         pirexRewards.addRewardToken(pxGlp, weth);
@@ -125,7 +131,13 @@ contract AutoPxGlpTest is Helper {
 
         // Some tests require different deposit setup, only process those with non-zero multiplier
         if (multiplier > 0) {
-            _depositGlpForTestAccounts(true, address(this), multiplier, true, false);
+            _depositGlpForTestAccounts(
+                true,
+                address(this),
+                multiplier,
+                useETH,
+                hasCooldown
+            );
         }
     }
 
@@ -609,11 +621,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: compound pxGLP rewards into more pxGLP and track pxGMX reward states
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testCompound(uint8 multiplier, uint32 secondsElapsed) external {
+    function testCompound(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             _depositToVault(testAccounts[i]);
@@ -695,11 +713,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: deposit to vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testDeposit(uint8 multiplier, uint32 secondsElapsed) external {
+    function testDeposit(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             _depositToVault(testAccounts[i]);
@@ -794,13 +818,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: deposit using fsGLP to vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testDepositFsGlp(uint8 multiplier, uint32 secondsElapsed)
-        external
-    {
+    function testDepositFsGlp(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(0);
+        _setupRewardsAndTestAccounts(0, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             // Mint fsGLP for the testAccount then deposit to the vault
@@ -1002,11 +1030,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: deposit using whitelisted token to vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testDepositGlp(uint8 multiplier, uint32 secondsElapsed) external {
+    function testDepositGlp(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(0);
+        _setupRewardsAndTestAccounts(0, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             // Mint WETH for the testAccount then deposit to the vault
@@ -1169,13 +1203,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: deposit using ETH to vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testDepositGlpETH(uint8 multiplier, uint32 secondsElapsed)
-        external
-    {
+    function testDepositGlpETH(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(0);
+        _setupRewardsAndTestAccounts(0, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             // Deal ETH for the testAccount then deposit to the vault
@@ -1258,11 +1296,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: mint vault shares and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testMint(uint8 multiplier, uint32 secondsElapsed) external {
+    function testMint(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             _depositToVault(testAccounts[i]);
@@ -1342,11 +1386,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: withdraw from vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testWithdraw(uint8 multiplier, uint32 secondsElapsed) external {
+    function testWithdraw(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             _depositToVault(testAccounts[i]);
@@ -1438,11 +1488,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: redeem from vault and assert the pxGMX reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testRedeem(uint8 multiplier, uint32 secondsElapsed) external {
+    function testRedeem(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             _depositToVault(testAccounts[i]);
@@ -1516,11 +1572,17 @@ contract AutoPxGlpTest is Helper {
         @notice Test tx success: claim pxGMX rewards and assert the reward states updates
         @param  multiplier      uint8   Multiplied with fixed token amounts for randomness
         @param  secondsElapsed  uint32  Seconds to forward timestamp
+        @param  useETH          bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool    Whether or not to enable GLP cooldown duration
      */
-    function testClaim(uint8 multiplier, uint32 secondsElapsed) external {
+    function testClaim(
+        uint8 multiplier,
+        uint32 secondsElapsed,
+        bool useETH,
+        bool hasCooldown
+    ) external {
         _validateTestArgs(multiplier, secondsElapsed);
-
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         uint256 totalClaimable;
 
@@ -1591,19 +1653,23 @@ contract AutoPxGlpTest is Helper {
         @param  transferPercentage  uint8   Percentage of sender balance to be transferred
         @param  secondsElapsed      uint32  Seconds to forward timestamp
         @param  useTransferFrom     bool    Whether to use transferFrom
+        @param  useETH              bool    Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown         bool    Whether or not to enable GLP cooldown duration
      */
     function testTransfer(
         uint8 multiplier,
         uint8 transferPercentage,
         uint32 secondsElapsed,
-        bool useTransferFrom
+        bool useTransferFrom,
+        bool useETH,
+        bool hasCooldown
     ) external {
         _validateTestArgs(multiplier, secondsElapsed);
 
         vm.assume(transferPercentage != 0);
         vm.assume(transferPercentage <= 100);
 
-        _setupRewardsAndTestAccounts(multiplier);
+        _setupRewardsAndTestAccounts(multiplier, useETH, hasCooldown);
 
         for (uint256 i; i < testAccounts.length; ++i) {
             address account = testAccounts[i];

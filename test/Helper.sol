@@ -341,6 +341,7 @@ contract Helper is Test, HelperEvents, HelperState {
         @param  caller          address    Account calling the minting, approving, and depositing methods
         @param  multiplier      uint256    Multiplied with fixed token amounts (uint256 to avoid overflow)
         @param  useETH          bool       Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool       Whether or not to enable GLP cooldown duration
         @return depositAmounts  uint256[]  GLP deposited for each test account
      */
     function _depositGlpForTestAccounts(
