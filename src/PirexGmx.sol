@@ -250,6 +250,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             r = useGmx ? stakedGmx : feeStakedGlp;
         }
 
+        uint256 totalSupply = r.totalSupply();
+
+        if (totalSupply == 0) return 0;
+
         address distributor = r.distributor();
         uint256 pendingRewards = IRewardDistributor(distributor)
             .pendingRewards();
@@ -260,7 +264,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             : pendingRewards;
         uint256 precision = r.PRECISION();
         uint256 cumulativeRewardPerToken = r.cumulativeRewardPerToken() +
-            ((blockReward * precision) / r.totalSupply());
+            ((blockReward * precision) / totalSupply);
 
         if (cumulativeRewardPerToken == 0) return 0;
 
