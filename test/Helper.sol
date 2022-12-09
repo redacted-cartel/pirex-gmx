@@ -46,8 +46,8 @@ contract Helper is Test, HelperEvents, HelperState {
     IStakedGlp internal immutable STAKED_GLP =
         IStakedGlp(
             block.chainid == AVAX_CHAIN_ID
-                ? 0x0b82a1aD2138E9f62454ac41b702B64e0b73d57b
-                : 0x2F546AD4eDD93B956C8999Be404cdCAFde3E89AE
+                ? 0xaE64d55a6f09E4263421737397D1fdFA71896a69
+                : 0x5402B5F40310bDED796c7D0F3FF6683f5C0cFfdf
         );
     address internal immutable POSITION_ROUTER =
         block.chainid == AVAX_CHAIN_ID
