@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {ReentrancyGuard} from "solmate/utils/ReentrancyGuard.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/security/Pausable.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ReentrancyGuard} from "src/lib/ReentrancyGuard.sol";
 import {PxERC20} from "src/PxERC20.sol";
 import {PirexFees} from "src/PirexFees.sol";
 import {DelegateRegistry} from "src/external/DelegateRegistry.sol";
 import {IRewardRouterV2} from "src/interfaces/IRewardRouterV2.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
 import {IStakedGlp} from "src/interfaces/IStakedGlp.sol";
-import {IVault} from "src/interfaces/IVault.sol";
 import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {IPirexRewards} from "src/interfaces/IPirexRewards.sol";
-import {IGlpManager} from "src/interfaces/IGlpManager.sol";
+import {IGlpManager, IVault} from "src/external/GlpManager.sol";
+import {PirexGmxCooldownHandler} from "src/PirexGmxCooldownHandler.sol";
 
 contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     using SafeTransferLib for ERC20;
@@ -58,6 +58,10 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
 
     // Pirex fee repository and distribution contract
     PirexFees public pirexFees;
+
+    // Handles deposits to circumvent the GLP cooldown duration
+    // to maintain a seamless deposit and redemption experience for users
+    PirexGmxCooldownHandler public immutable pirexGmxCooldownHandler;
 
     // Pirex reward module contract
     address public immutable pirexRewards;
@@ -104,12 +108,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         uint256 feeAmount
     );
     event DepositGlp(
-        address indexed caller,
         address indexed receiver,
-        address indexed token,
-        uint256 tokenAmount,
-        uint256 minUsdg,
-        uint256 minGlp,
         uint256 deposited,
         uint256 postFeeAmount,
         uint256 feeAmount
@@ -198,6 +197,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         pxGmx = PxERC20(_pxGmx);
         pxGlp = PxERC20(_pxGlp);
         pirexFees = PirexFees(_pirexFees);
+        pirexGmxCooldownHandler = new PirexGmxCooldownHandler();
         pirexRewards = _pirexRewards;
         delegateRegistry = DelegateRegistry(_delegateRegistry);
         gmxBaseReward = ERC20(_gmxBaseReward);
@@ -211,6 +211,23 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     modifier onlyPirexRewards() {
         if (msg.sender != pirexRewards) revert NotPirexRewards();
         _;
+    }
+
+    /**
+        @notice Applied to depositFsGlp to enable PirexGmxCooldownHandler to
+                call back and deposit minted + staked GLP on behalf of the user
+    */
+    modifier nonReentrantWithCooldownHandlerException() {
+        require(
+            msg.sender == address(pirexGmxCooldownHandler) || locked == 1,
+            "REENTRANCY"
+        );
+
+        locked = 2;
+
+        _;
+
+        locked = 1;
     }
 
     /**
@@ -286,7 +303,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         feeStakedGlp = RewardTracker(glpRewardRouterV2.stakedGlpTracker());
         stakedGmx = RewardTracker(gmxRewardRouterV2.stakedGmxTracker());
         glpManager = glpRewardRouterV2.glpManager();
-        gmxVault = IVault(IGlpManager(glpManager).vault());
+        gmxVault = IGlpManager(glpManager).vault();
 
         emit InitializeGmxState(
             msg.sender,
@@ -437,7 +454,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
     function depositFsGlp(uint256 amount, address receiver)
         external
         whenNotPaused
-        nonReentrant
+        nonReentrantWithCooldownHandlerException
         returns (
             uint256,
             uint256,
@@ -464,105 +481,9 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             pxGlp.mint(address(pirexFees), feeAmount);
         }
 
-        emit DepositGlp(
-            msg.sender,
-            receiver,
-            address(stakedGlp),
-            0,
-            0,
-            0,
-            amount,
-            postFeeAmount,
-            feeAmount
-        );
+        emit DepositGlp(receiver, amount, postFeeAmount, feeAmount);
 
         return (amount, postFeeAmount, feeAmount);
-    }
-
-    /**
-        @notice Deposit GLP for pxGLP
-        @param  token          address  GMX-whitelisted token for minting GLP (optional)
-        @param  tokenAmount    uint256  Token amount
-        @param  minUsdg        uint256  Minimum USDG purchased and used to mint GLP
-        @param  minGlp         uint256  Minimum GLP amount minted from tokens
-        @param  receiver       address  pxGLP receiver
-        @return deposited      uint256  GLP deposited
-        @return postFeeAmount  uint256  pxGLP minted for the receiver
-        @return feeAmount      uint256  pxGLP distributed as fees
-     */
-    function _depositGlp(
-        address token,
-        uint256 tokenAmount,
-        uint256 minUsdg,
-        uint256 minGlp,
-        address receiver
-    )
-        internal
-        returns (
-            uint256 deposited,
-            uint256 postFeeAmount,
-            uint256 feeAmount
-        )
-    {
-        if (tokenAmount == 0) revert ZeroAmount();
-        if (minUsdg == 0) revert ZeroAmount();
-        if (minGlp == 0) revert ZeroAmount();
-        if (receiver == address(0)) revert ZeroAddress();
-
-        if (token == address(0)) {
-            // Mint and stake GLP using ETH
-            deposited = glpRewardRouterV2.mintAndStakeGlpETH{
-                value: tokenAmount
-            }(minUsdg, minGlp);
-        } else {
-            ERC20 t = ERC20(token);
-
-            uint256 preTransferBalance = t.balanceOf(address(this));
-
-            // Intake user ERC20 tokens
-            t.safeTransferFrom(msg.sender, address(this), tokenAmount);
-
-            uint256 transferredAmount = t.balanceOf(address(this)) - preTransferBalance;
-
-            if (transferredAmount == 0) revert ZeroAmount();
-
-            // Approve GLP Manager contract with the actual amount transferred
-            t.safeApprove(glpManager, transferredAmount);
-
-            // Mint and stake GLP using ERC20 tokens
-            deposited = glpRewardRouterV2.mintAndStakeGlp(
-                token,
-                transferredAmount,
-                minUsdg,
-                minGlp
-            );
-        }
-
-        // Calculate the post-fee and fee amounts based on the fee type and total deposited
-        (postFeeAmount, feeAmount) = _computeAssetAmounts(
-            Fees.Deposit,
-            deposited
-        );
-
-        // Mint pxGLP for the receiver
-        pxGlp.mint(receiver, postFeeAmount);
-
-        // Mint pxGLP for fee distribution contract
-        if (feeAmount != 0) {
-            pxGlp.mint(address(pirexFees), feeAmount);
-        }
-
-        emit DepositGlp(
-            msg.sender,
-            receiver,
-            token,
-            tokenAmount,
-            minUsdg,
-            minGlp,
-            deposited,
-            postFeeAmount,
-            feeAmount
-        );
     }
 
     /**
@@ -570,7 +491,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         @param  minUsdg    uint256  Minimum USDG purchased and used to mint GLP
         @param  minGlp     uint256  Minimum GLP amount minted from ETH
         @param  receiver   address  pxGLP receiver
-        @return deposited  uint256  GLP deposited
+        @return            uint256  GLP deposited
         @return            uint256  pxGLP minted for the receiver
         @return            uint256  pxGLP distributed as fees
      */
@@ -589,7 +510,22 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
             uint256
         )
     {
-        return _depositGlp(address(0), msg.value, minUsdg, minGlp, receiver);
+        if (msg.value == 0) revert ZeroAmount();
+        if (minUsdg == 0) revert ZeroAmount();
+        if (minGlp == 0) revert ZeroAmount();
+        if (receiver == address(0)) revert ZeroAddress();
+
+        return
+            pirexGmxCooldownHandler.depositGlp{value: msg.value}(
+                glpRewardRouterV2,
+                stakedGlp,
+                glpManager,
+                address(0),
+                msg.value,
+                minUsdg,
+                minGlp,
+                receiver
+            );
     }
 
     /**
@@ -620,9 +556,29 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         )
     {
         if (token == address(0)) revert ZeroAddress();
+        if (tokenAmount == 0) revert ZeroAmount();
+        if (minUsdg == 0) revert ZeroAmount();
+        if (minGlp == 0) revert ZeroAmount();
+        if (receiver == address(0)) revert ZeroAddress();
         if (!gmxVault.whitelistedTokens(token)) revert InvalidToken(token);
 
-        return _depositGlp(token, tokenAmount, minUsdg, minGlp, receiver);
+        ERC20(token).safeTransferFrom(
+            msg.sender,
+            address(pirexGmxCooldownHandler),
+            tokenAmount
+        );
+
+        return
+            pirexGmxCooldownHandler.depositGlp(
+                glpRewardRouterV2,
+                stakedGlp,
+                glpManager,
+                token,
+                tokenAmount,
+                minUsdg,
+                minGlp,
+                receiver
+            );
     }
 
     /**

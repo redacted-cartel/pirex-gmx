@@ -16,11 +16,10 @@ import {GlobalState} from "src/Common.sol";
 import {AutoPxGmx} from "src/vaults/AutoPxGmx.sol";
 import {AutoPxGlp} from "src/vaults/AutoPxGlp.sol";
 import {IRewardRouterV2} from "src/interfaces/IRewardRouterV2.sol";
-import {IGlpManager} from "src/interfaces/IGlpManager.sol";
+import {GlpManager, IVault} from "src/external/GlpManager.sol";
 import {IGMX} from "src/interfaces/IGMX.sol";
 import {ITimelock} from "src/interfaces/ITimelock.sol";
 import {IWETH} from "src/interfaces/IWETH.sol";
-import {IVault} from "src/interfaces/IVault.sol";
 import {IRewardDistributor} from "src/interfaces/IRewardDistributor.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
 import {IStakedGlp} from "src/interfaces/IStakedGlp.sol";
@@ -82,7 +81,7 @@ contract Helper is Test, HelperEvents, HelperState {
     RewardTracker internal immutable rewardTrackerMp;
     RewardTracker internal immutable feeStakedGlp;
     RewardTracker internal immutable stakedGmx;
-    IGlpManager internal immutable glpManager;
+    GlpManager internal immutable glpManager;
     IVault internal immutable vault;
     IGMX internal immutable gmx;
 
@@ -119,12 +118,12 @@ contract Helper is Test, HelperEvents, HelperState {
         rewardTrackerMp = RewardTracker(REWARD_ROUTER_V2.bonusGmxTracker());
         feeStakedGlp = RewardTracker(GLP_REWARD_ROUTER_V2.stakedGlpTracker());
         stakedGmx = RewardTracker(REWARD_ROUTER_V2.stakedGmxTracker());
-        glpManager = IGlpManager(GLP_REWARD_ROUTER_V2.glpManager());
+        glpManager = GlpManager(GLP_REWARD_ROUTER_V2.glpManager());
         gmx = IGMX(REWARD_ROUTER_V2.gmx());
         weth = ERC20(REWARD_ROUTER_V2.weth());
         bnGmx = REWARD_ROUTER_V2.bnGmx();
         esGmx = REWARD_ROUTER_V2.esGmx();
-        vault = IVault(glpManager.vault());
+        vault = glpManager.vault();
         usdg = IERC20(glpManager.usdg());
 
         // Deploy the upgradable pirexRewards contract instance
@@ -248,20 +247,28 @@ contract Helper is Test, HelperEvents, HelperState {
 
     /**
         @notice Mint pxGMX or pxGLP for test accounts
-        @param  useGmx      bool     Whether to use pxGMX
-        @param  multiplier  uint256  Multiplied with fixed token amounts (uint256 to avoid overflow)
-        @param  useETH      bool     Whether or not to use ETH as the source asset for minting GLP
+        @param  useGmx       bool     Whether to use pxGMX
+        @param  multiplier   uint256  Multiplied with fixed token amounts (uint256 to avoid overflow)
+        @param  useETH       bool     Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown  bool     Whether or not to enable GLP cooldown duration
 
      */
     function _depositForTestAccounts(
         bool useGmx,
         uint256 multiplier,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) internal {
         if (useGmx) {
             _depositGmxForTestAccounts(true, address(this), multiplier);
         } else {
-            _depositGlpForTestAccounts(true, address(this), multiplier, useETH);
+            _depositGlpForTestAccounts(
+                true,
+                address(this),
+                multiplier,
+                useETH,
+                hasCooldown
+            );
         }
     }
 
@@ -334,14 +341,20 @@ contract Helper is Test, HelperEvents, HelperState {
         @param  caller          address    Account calling the minting, approving, and depositing methods
         @param  multiplier      uint256    Multiplied with fixed token amounts (uint256 to avoid overflow)
         @param  useETH          bool       Whether or not to use ETH as the source asset for minting GLP
+        @param  hasCooldown     bool       Whether or not to enable GLP cooldown duration
         @return depositAmounts  uint256[]  GLP deposited for each test account
      */
     function _depositGlpForTestAccounts(
         bool separateCaller,
         address caller,
         uint256 multiplier,
-        bool useETH
+        bool useETH,
+        bool hasCooldown
     ) internal returns (uint256[] memory depositAmounts) {
+        if (hasCooldown) {
+            _setCooldownDuration(glpManager.MAX_COOLDOWN_DURATION());
+        }
+
         uint256 tLen = testAccounts.length;
 
         // Only used locally to track token amounts used to mint GLP
@@ -364,19 +377,9 @@ contract Helper is Test, HelperEvents, HelperState {
             if (useETH) {
                 vm.deal(caller, total);
                 vm.prank(caller);
-                vm.expectEmit(true, true, true, false, address(pirexGmx));
+                vm.expectEmit(true, false, false, false, address(pirexGmx));
 
-                emit DepositGlp(
-                    caller,
-                    testAccount,
-                    address(0),
-                    total,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0
-                );
+                emit DepositGlp(testAccount, 0, 0, 0);
 
                 (deposited, depositPostFeeAmount, depositFeeAmount) = pirexGmx
                     .depositGlpETH{value: total}(1, 1, testAccount);
@@ -388,19 +391,9 @@ contract Helper is Test, HelperEvents, HelperState {
                 weth.approve(address(pirexGmx), total);
 
                 vm.prank(caller);
-                vm.expectEmit(true, true, true, false, address(pirexGmx));
+                vm.expectEmit(true, false, false, false, address(pirexGmx));
 
-                emit DepositGlp(
-                    caller,
-                    testAccount,
-                    address(weth),
-                    total,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0
-                );
+                emit DepositGlp(testAccount, 0, 0, 0);
 
                 (deposited, depositPostFeeAmount, depositFeeAmount) = pirexGmx
                     .depositGlp(address(weth), total, 1, 1, testAccount);
@@ -415,6 +408,19 @@ contract Helper is Test, HelperEvents, HelperState {
             assertEq(deposited, depositPostFeeAmount + feeAmount);
             assertEq(postFeeAmount, depositPostFeeAmount);
             assertEq(feeAmount, depositFeeAmount);
+            assertEq(
+                pxGlp.totalSupply(),
+                feeStakedGlp.balanceOf(address(pirexGmx))
+            );
+
+            // Since the cooldown handler contract is minting + staking GLP, PirexGmx's lastAddedAt should be 0
+            assertEq(0, glpManager.lastAddedAt(address(pirexGmx)));
+            assertEq(
+                block.timestamp,
+                glpManager.lastAddedAt(
+                    address(pirexGmx.pirexGmxCooldownHandler())
+                )
+            );
         }
     }
 
@@ -467,8 +473,6 @@ contract Helper is Test, HelperEvents, HelperState {
         vm.startPrank(receiver);
 
         fsGlp = GLP_REWARD_ROUTER_V2.mintAndStakeGlpETH{value: ethAmount}(1, 1);
-
-        vm.warp(block.timestamp + 1 hours);
 
         STAKED_GLP.approve(address(pirexGmx), fsGlp);
 
@@ -681,39 +685,23 @@ contract Helper is Test, HelperEvents, HelperState {
 
     /**
         @notice Deposit ETH for pxGLP for testing purposes
-        @param  etherAmount     uint256  Amount of ETH
-        @param  receiver        address  Receiver of pxGLP
-        @param  secondsElapsed  uint32   Seconds to forward timestamp
-        @return postFeeAmount   uint256  pxGLP minted for the receiver
-        @return feeAmount       uint256  pxGLP distributed as fees
-     */
-    function _depositGlpETHWithTimeSkip(
-        uint256 etherAmount,
-        address receiver,
-        uint256 secondsElapsed
-    ) internal returns (uint256 postFeeAmount, uint256 feeAmount) {
-        vm.deal(address(this), etherAmount);
-
-        (, postFeeAmount, feeAmount) = pirexGmx.depositGlpETH{
-            value: etherAmount
-        }(1, 1, receiver);
-
-        vm.warp(block.timestamp + secondsElapsed);
-    }
-
-    /**
-        @notice Deposit ETH for pxGLP for testing purposes
         @param  etherAmount    uint256  Amount of ETH
         @param  receiver       address  Receiver of pxGLP
+        @return deposited      uint256  GLP deposited
         @return postFeeAmount  uint256  pxGLP minted for the receiver
         @return feeAmount      uint256  pxGLP distributed as fees
      */
     function _depositGlpETH(uint256 etherAmount, address receiver)
         internal
-        returns (uint256 postFeeAmount, uint256 feeAmount)
+        returns (
+            uint256 deposited,
+            uint256 postFeeAmount,
+            uint256 feeAmount
+        )
     {
-        // Use the standard 1-hour time skip
-        return _depositGlpETHWithTimeSkip(etherAmount, receiver, 1 hours);
+        vm.deal(address(this), etherAmount);
+
+        return pirexGmx.depositGlpETH{value: etherAmount}(1, 1, receiver);
     }
 
     /**
@@ -742,9 +730,6 @@ contract Helper is Test, HelperEvents, HelperState {
             1,
             receiver
         );
-
-        // Time skip to bypass the cooldown duration
-        vm.warp(block.timestamp + 1 hours);
     }
 
     /**
@@ -939,5 +924,13 @@ contract Helper is Test, HelperEvents, HelperState {
             balances[i * propsLength] = IERC20(token).balanceOf(_account);
             balances[i * propsLength + 1] = IERC20(token).totalSupply();
         }
+    }
+
+    /**
+        @notice Set the value of GlpManager's cooldownDuration
+        @param  duration  uint256  Cooldown duration
+    */
+    function _setCooldownDuration(uint256 duration) internal {
+        vm.store(address(glpManager), bytes32(uint256(6)), bytes32(duration));
     }
 }

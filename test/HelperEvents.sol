@@ -5,7 +5,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
 import {PirexFees} from "src/PirexFees.sol";
 import {RewardTracker} from "src/external/RewardTracker.sol";
-import {IVault} from "src/interfaces/IVault.sol";
+import {IVault} from "src/external/GlpManager.sol";
 
 contract HelperEvents {
     // PirexGmx events
@@ -28,12 +28,7 @@ contract HelperEvents {
         uint256 feeAmount
     );
     event DepositGlp(
-        address indexed caller,
         address indexed receiver,
-        address indexed token,
-        uint256 tokenAmount,
-        uint256 minUsdg,
-        uint256 minGlp,
         uint256 deposited,
         uint256 postFeeAmount,
         uint256 feeAmount
