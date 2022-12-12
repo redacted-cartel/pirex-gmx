@@ -305,11 +305,9 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         }
 
         // Only distribute fees if the amount of vault assets increased
-        if ((totalAssets() - assetsBeforeClaim) != 0) {
-            totalFee =
-                ((asset.balanceOf(address(this)) - assetsBeforeClaim) *
-                    platformFee) /
-                FEE_DENOMINATOR;
+        uint256 newAssets = totalAssets() - assetsBeforeClaim;
+        if (newAssets != 0) {
+            totalFee = (newAssets * platformFee) / FEE_DENOMINATOR;
             incentive = optOutIncentive
                 ? 0
                 : (totalFee * compoundIncentive) / FEE_DENOMINATOR;
