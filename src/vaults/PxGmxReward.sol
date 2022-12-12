@@ -12,7 +12,7 @@ contract PxGmxReward is Owned {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
-    ERC20 public pxGmx;
+    ERC20 public immutable pxGmx;
 
     GlobalState public globalState;
     uint256 public rewardState;
