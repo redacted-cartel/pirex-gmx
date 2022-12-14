@@ -33,9 +33,6 @@ contract FeiFlywheelCoreV2 is Owned {
     // The fixed point factor of flywheel
     uint224 public constant ONE = 1e18;
 
-    // The token to reward
-    ERC20 public immutable rewardToken;
-
     // Append-only list of strategies added
     ERC20[] public allStrategies;
 
@@ -78,9 +75,7 @@ contract FeiFlywheelCoreV2 is Owned {
     error ZeroAddress();
     error StrategyAlreadySet();
 
-    constructor(ERC20 _rewardToken) Owned(msg.sender) {
-        rewardToken = _rewardToken;
-    }
+    constructor() Owned(msg.sender) {}
 
     /*///////////////////////////////////////////////////////////////
                         ACCRUE/CLAIM LOGIC
@@ -154,11 +149,6 @@ contract FeiFlywheelCoreV2 is Owned {
             rewardsAccrued[user] = 0;
 
             // TODO: Transfer rewards to user
-            // rewardToken.safeTransferFrom(
-            //     address(flywheelRewards),
-            //     user,
-            //     accrued
-            // );
 
             emit ClaimRewards(user, accrued);
         }
