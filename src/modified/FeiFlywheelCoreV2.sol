@@ -15,10 +15,21 @@ import {Owned} from "solmate/auth/Owned.sol";
     @notice Pirex-GMX modifications
         - Replace Solmate Auth with Solmate Owned
         - Removed Flywheel rewards and booster modules
+        - Hoist (in code) contract types and variables
 */
 contract FeiFlywheelCoreV2 is Owned {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
+
+    struct RewardsState {
+        /// @notice The strategy's last updated index
+        uint224 index;
+        /// @notice The timestamp the index was last updated at
+        uint32 lastUpdatedTimestamp;
+    }
+
+    /// @notice the fixed point factor of flywheel
+    uint224 public constant ONE = 1e18;
 
     /// @notice The token to reward
     ERC20 public immutable rewardToken;
@@ -26,13 +37,14 @@ contract FeiFlywheelCoreV2 is Owned {
     /// @notice append-only list of strategies added
     ERC20[] public allStrategies;
 
-    constructor(ERC20 _rewardToken) Owned(msg.sender) {
-        rewardToken = _rewardToken;
-    }
+    /// @notice The strategy index and last updated per strategy
+    mapping(ERC20 => RewardsState) public strategyState;
 
-    /*///////////////////////////////////////////////////////////////
-                        ACCRUE/CLAIM LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// @notice user index per strategy
+    mapping(ERC20 => mapping(address => uint224)) public userIndex;
+
+    /// @notice The accrued but not yet transferred rewards for each user
+    mapping(address => uint256) public rewardsAccrued;
 
     /**
       @notice Emitted when a user's rewards accrue to a given strategy.
@@ -55,8 +67,19 @@ contract FeiFlywheelCoreV2 is Owned {
     */
     event ClaimRewards(address indexed user, uint256 amount);
 
-    /// @notice The accrued but not yet transferred rewards for each user
-    mapping(address => uint256) public rewardsAccrued;
+    /**
+      @notice Emitted when a new strategy is added to flywheel by the admin
+      @param newStrategy the new added strategy
+    */
+    event AddStrategy(address indexed newStrategy);
+
+    constructor(ERC20 _rewardToken) Owned(msg.sender) {
+        rewardToken = _rewardToken;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                        ACCRUE/CLAIM LOGIC
+    //////////////////////////////////////////////////////////////*/
 
     /**
       @notice accrue rewards for a single user on a strategy
@@ -64,7 +87,11 @@ contract FeiFlywheelCoreV2 is Owned {
       @param user the user to be accrued
       @return the cumulative amount of rewards accrued to user (including prior)
     */
-    function accrue(ERC20 strategy, uint256 accruedRewards, address user) public returns (uint256) {
+    function accrue(
+        ERC20 strategy,
+        uint256 accruedRewards,
+        address user
+    ) public returns (uint256) {
         RewardsState memory state = strategyState[strategy];
 
         if (state.index == 0) return 0;
@@ -124,12 +151,6 @@ contract FeiFlywheelCoreV2 is Owned {
                           ADMIN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /**
-      @notice Emitted when a new strategy is added to flywheel by the admin
-      @param newStrategy the new added strategy
-    */
-    event AddStrategy(address indexed newStrategy);
-
     /// @notice initialize a new strategy
     function addStrategyForRewards(ERC20 strategy) external onlyOwner {
         _addStrategyForRewards(strategy);
@@ -153,22 +174,6 @@ contract FeiFlywheelCoreV2 is Owned {
     /*///////////////////////////////////////////////////////////////
                     INTERNAL ACCOUNTING LOGIC
     //////////////////////////////////////////////////////////////*/
-
-    struct RewardsState {
-        /// @notice The strategy's last updated index
-        uint224 index;
-        /// @notice The timestamp the index was last updated at
-        uint32 lastUpdatedTimestamp;
-    }
-
-    /// @notice the fixed point factor of flywheel
-    uint224 public constant ONE = 1e18;
-
-    /// @notice The strategy index and last updated per strategy
-    mapping(ERC20 => RewardsState) public strategyState;
-
-    /// @notice user index per strategy
-    mapping(ERC20 => mapping(address => uint224)) public userIndex;
 
     /// @notice accumulate global rewards on a strategy
     function accrueStrategy(
