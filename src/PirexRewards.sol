@@ -221,16 +221,6 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Update global rewards accrual state
-        @param  producerToken  ERC20  Rewards-producing token
-    */
-    function globalAccrue(ERC20 producerToken) external {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
-
-        _globalAccrue(producerTokens[producerToken].globalState, producerToken);
-    }
-
-    /**
         @notice Update user rewards accrual state
         @param  producerToken  ERC20    Rewards-producing token
         @param  user           address  User address
@@ -255,44 +245,12 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Update global accrual state
-        @param  globalState    GlobalState  Global state of the producer token
-        @param  producerToken  ERC20        Producer token contract
-    */
-    function _globalAccrue(GlobalState storage globalState, ERC20 producerToken)
-        internal
-    {
-        uint256 totalSupply = producerToken.totalSupply();
-        uint256 lastUpdate = globalState.lastUpdate;
-        uint256 lastSupply = globalState.lastSupply;
-
-        // Calculate rewards, the product of seconds elapsed and last supply
-        // Only calculate and update states when needed
-        if (block.timestamp != lastUpdate || totalSupply != lastSupply) {
-            uint256 rewards = globalState.rewards +
-                (block.timestamp - lastUpdate) *
-                lastSupply;
-
-            globalState.lastUpdate = block.timestamp.safeCastTo32();
-            globalState.lastSupply = totalSupply.safeCastTo224();
-            globalState.rewards = rewards;
-
-            emit GlobalAccrue(
-                producerToken,
-                block.timestamp,
-                totalSupply,
-                rewards
-            );
-        }
-    }
-
-    /**
         @notice Harvest rewards
         @return _producerTokens  ERC20[]  Producer token contracts
         @return rewardTokens     ERC20[]  Reward token contracts
         @return rewardAmounts    ERC20[]  Reward token amounts
     */
-    function harvest()
+    function accrueStrategy()
         public
         returns (
             ERC20[] memory _producerTokens,
@@ -304,22 +262,17 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
             .claimRewards();
         uint256 pLen = _producerTokens.length;
 
-        // Iterate over the producer tokens and update reward state
+        // Iterate over the producer tokens and accrue strategy
         for (uint256 i; i < pLen; ++i) {
-            ERC20 p = _producerTokens[i];
             uint256 r = rewardAmounts[i];
 
-            // Update global reward accrual state and associate with the update of reward state
-            ProducerToken storage producerState = producerTokens[p];
-
-            _globalAccrue(producerState.globalState, p);
-
             if (r != 0) {
-                producerState.rewardStates[rewardTokens[i]] += r;
+                _accrueStrategy(
+                    abi.encode(_producerTokens[i], rewardTokens[i]),
+                    r
+                );
             }
         }
-
-        emit Harvest(_producerTokens, rewardTokens, rewardAmounts);
     }
 
     /**

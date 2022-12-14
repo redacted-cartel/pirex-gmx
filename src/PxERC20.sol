@@ -50,7 +50,7 @@ contract PxERC20 is ERC20, AccessControl {
         _mint(to, amount);
 
         // Accrue global and user rewards and store post-mint supply for future accrual
-        pirexRewards.globalAccrue(this);
+        pirexRewards.accrueStrategy();
         pirexRewards.userAccrue(this, to);
     }
 
@@ -67,7 +67,7 @@ contract PxERC20 is ERC20, AccessControl {
         _burn(from, amount);
 
         // Accrue global and user rewards and store post-burn supply for future accrual
-        pirexRewards.globalAccrue(this);
+        pirexRewards.accrueStrategy();
         pirexRewards.userAccrue(this, from);
     }
 
