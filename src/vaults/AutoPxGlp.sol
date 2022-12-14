@@ -84,7 +84,7 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         rewardsModule = _rewardsModule;
 
         // Approve the main Pirex contract to manage our base reward (inbound swap token)
-        gmxBaseReward.safeApprove(address(_platform), type(uint256).max);
+        gmxBaseReward.safeApprove(_platform, type(uint256).max);
     }
 
     /**
