@@ -19,6 +19,9 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Update styling to conform with Pirex practices
         - Add function parameter validation and associated errors
         - Update strategy type to bytes (abi-encoded producer and reward ERC20-type contracts)
+        - Add AccrueStrategy event and emit in accrueStrategy
+        - Return function if accruedRewards is zero in accrueStrategy
+        - Add leading underscore to accrueStrategy and change visibility to internal
 */
 contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
@@ -45,6 +48,13 @@ contract FeiFlywheelCoreV2 {
 
     // The accrued but not yet transferred rewards for each user
     mapping(address => uint256) public rewardsAccrued;
+
+    /**
+      @notice Emitted when a strategy has its rewards accrued
+      @param  strategy        bytes    The updated rewards strategy
+      @param  accruedRewards  uint256  The amount of accrued rewards
+    */
+    event AccrueStrategy(bytes indexed strategy, uint256 accruedRewards);
 
     /**
       @notice Emitted when a user's rewards accrue to a given strategy.
@@ -80,61 +90,6 @@ contract FeiFlywheelCoreV2 {
     /*///////////////////////////////////////////////////////////////
                         ACCRUE/CLAIM LOGIC
     //////////////////////////////////////////////////////////////*/
-
-    /**
-      @notice Accrue rewards for a single user on a strategy
-      @param  strategy        bytes    The strategy to accrue a user's rewards on
-      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
-      @param  user            address  The user to be accrued
-      @return                 uint256  The cumulative amount of rewards accrued to user (including prior)
-    */
-    function accrue(
-        bytes memory strategy,
-        uint256 accruedRewards,
-        address user
-    ) public returns (uint256) {
-        // Only strategy needs to be validated since accruedRewards and user can be zero values
-        if (strategy.length == 0) revert InvalidStrategy();
-
-        RewardsState memory state = strategyState[strategy];
-
-        if (state.index == 0) return 0;
-
-        state = accrueStrategy(strategy, state, accruedRewards);
-        return accrueUser(strategy, user, state);
-    }
-
-    /**
-      @notice Accrue rewards for a two users on a strategy
-      @param  strategy        bytes    The strategy to accrue a user's rewards on
-      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
-      @param  user            address  The first user to be accrued
-      @param  secondUser      address  The second user to be accrued
-      @return                 uint256  The cumulative amount of rewards accrued to the first user (including prior)
-      @return                 uint256  The cumulative amount of rewards accrued to the second user (including prior)
-    */
-    function accrue(
-        bytes memory strategy,
-        uint256 accruedRewards,
-        address user,
-        address secondUser
-    ) public returns (uint256, uint256) {
-        if (strategy.length == 0) revert InvalidStrategy();
-
-        // Users are validated since there's no reason to call this variant of accrue if either are zero addresses
-        if (user == address(0)) revert ZeroAddress();
-        if (secondUser == address(0)) revert ZeroAddress();
-
-        RewardsState memory state = strategyState[strategy];
-
-        if (state.index == 0) return (0, 0);
-
-        state = accrueStrategy(strategy, state, accruedRewards);
-        return (
-            accrueUser(strategy, user, state),
-            accrueUser(strategy, secondUser, state)
-        );
-    }
 
     /**
       @notice Claim rewards for a given user
@@ -203,36 +158,34 @@ contract FeiFlywheelCoreV2 {
 
     /**
       @notice Sync strategy state with rewards
-      @param  strategy        bytes         The strategy to accrue a user's rewards on
-      @param  state           RewardsState  The strategy rewards state
-      @param  accruedRewards  uint256       The rewards amount accrued by the strategy
+      @param  strategy        bytes    The strategy to accrue a user's rewards on
+      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
     */
-    function accrueStrategy(
-        bytes memory strategy,
-        RewardsState memory state,
-        uint256 accruedRewards
-    ) internal returns (RewardsState memory rewardsState) {
-        rewardsState = state;
+    function _accrueStrategy(bytes memory strategy, uint256 accruedRewards)
+        internal
+        returns (RewardsState memory rewardsState)
+    {
+        emit AccrueStrategy(strategy, accruedRewards);
 
-        if (accruedRewards > 0) {
-            (ERC20 producer, ) = _decodeStrategy(strategy);
+        if (accruedRewards == 0) return strategyState[strategy];
 
-            // Use the booster or token supply to calculate reward index denominator
-            uint256 supplyTokens = producer.totalSupply();
+        (ERC20 producer, ) = _decodeStrategy(strategy);
 
-            uint224 deltaIndex;
+        // Use the booster or token supply to calculate reward index denominator
+        uint256 supplyTokens = producer.totalSupply();
 
-            if (supplyTokens != 0)
-                deltaIndex = ((accruedRewards * ONE) / supplyTokens)
-                    .safeCastTo224();
+        uint224 deltaIndex;
 
-            // Accumulate rewards per token onto the index, multiplied by fixed-point factor
-            rewardsState = RewardsState({
-                index: state.index + deltaIndex,
-                lastUpdatedTimestamp: block.timestamp.safeCastTo32()
-            });
-            strategyState[strategy] = rewardsState;
-        }
+        if (supplyTokens != 0)
+            deltaIndex = ((accruedRewards * ONE) / supplyTokens)
+                .safeCastTo224();
+
+        // Accumulate rewards per token onto the index, multiplied by fixed-point factor
+        rewardsState = RewardsState({
+            index: strategyState[strategy].index + deltaIndex,
+            lastUpdatedTimestamp: block.timestamp.safeCastTo32()
+        });
+        strategyState[strategy] = rewardsState;
     }
 
     /**
