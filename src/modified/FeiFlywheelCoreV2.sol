@@ -22,36 +22,36 @@ contract FeiFlywheelCoreV2 is Owned {
     using SafeCastLib for uint256;
 
     struct RewardsState {
-        /// @notice The strategy's last updated index
+        // The strategy's last updated index
         uint224 index;
-        /// @notice The timestamp the index was last updated at
+        // The timestamp the index was last updated at
         uint32 lastUpdatedTimestamp;
     }
 
-    /// @notice the fixed point factor of flywheel
+    // The fixed point factor of flywheel
     uint224 public constant ONE = 1e18;
 
-    /// @notice The token to reward
+    // The token to reward
     ERC20 public immutable rewardToken;
 
-    /// @notice append-only list of strategies added
+    // Append-only list of strategies added
     ERC20[] public allStrategies;
 
-    /// @notice The strategy index and last updated per strategy
+    // The strategy index and last updated per strategy
     mapping(ERC20 => RewardsState) public strategyState;
 
-    /// @notice user index per strategy
+    // User index per strategy
     mapping(ERC20 => mapping(address => uint224)) public userIndex;
 
-    /// @notice The accrued but not yet transferred rewards for each user
+    // The accrued but not yet transferred rewards for each user
     mapping(address => uint256) public rewardsAccrued;
 
     /**
       @notice Emitted when a user's rewards accrue to a given strategy.
-      @param strategy the updated rewards strategy
-      @param user the user of the rewards
-      @param rewardsDelta how many new rewards accrued to the user
-      @param rewardsIndex the market index for rewards per token accrued
+      @param  strategy      ERC20    The updated rewards strategy
+      @param  user          address  The user of the rewards
+      @param  rewardsDelta  uint256  How many new rewards accrued to the user
+      @param  rewardsIndex  uint256  The market index for rewards per token accrued
     */
     event AccrueRewards(
         ERC20 indexed strategy,
@@ -62,14 +62,14 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Emitted when a user claims accrued rewards.
-      @param user the user of the rewards
-      @param amount the amount of rewards claimed
+      @param  user    address  The user of the rewards
+      @param  amount  uint256  The amount of rewards claimed
     */
     event ClaimRewards(address indexed user, uint256 amount);
 
     /**
       @notice Emitted when a new strategy is added to flywheel by the admin
-      @param newStrategy the new added strategy
+      @param  newStrategy  address  The new added strategy
     */
     event AddStrategy(address indexed newStrategy);
 
@@ -82,10 +82,11 @@ contract FeiFlywheelCoreV2 is Owned {
     //////////////////////////////////////////////////////////////*/
 
     /**
-      @notice accrue rewards for a single user on a strategy
-      @param strategy the strategy to accrue a user's rewards on
-      @param user the user to be accrued
-      @return the cumulative amount of rewards accrued to user (including prior)
+      @notice Accrue rewards for a single user on a strategy
+      @param  strategy        ERC20    The strategy to accrue a user's rewards on
+      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
+      @param  user            address  The user to be accrued
+      @return                 uint256  The cumulative amount of rewards accrued to user (including prior)
     */
     function accrue(
         ERC20 strategy,
@@ -101,12 +102,13 @@ contract FeiFlywheelCoreV2 is Owned {
     }
 
     /**
-      @notice accrue rewards for a two users on a strategy
-      @param strategy the strategy to accrue a user's rewards on
-      @param user the first user to be accrued
-      @param user the second user to be accrued
-      @return the cumulative amount of rewards accrued to the first user (including prior)
-      @return the cumulative amount of rewards accrued to the second user (including prior)
+      @notice Accrue rewards for a two users on a strategy
+      @param  strategy        ERC20    The strategy to accrue a user's rewards on
+      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
+      @param  user            address  The first user to be accrued
+      @param  secondUser      address  The second user to be accrued
+      @return                 uint256  The cumulative amount of rewards accrued to the first user (including prior)
+      @return                 uint256  The cumulative amount of rewards accrued to the second user (including prior)
     */
     function accrue(
         ERC20 strategy,
@@ -126,9 +128,8 @@ contract FeiFlywheelCoreV2 is Owned {
     }
 
     /**
-      @notice claim rewards for a given user
-      @param user the user claiming rewards
-      @dev this function is public, and all rewards transfer to the user
+      @notice Claim rewards for a given user
+      @param  user  address  The user claiming rewards
     */
     function claimRewards(address user) external {
         uint256 accrued = rewardsAccrued[user];
@@ -151,11 +152,18 @@ contract FeiFlywheelCoreV2 is Owned {
                           ADMIN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice initialize a new strategy
+    /**
+      @notice Initialize a new strategy
+      @param  strategy  ERC20  The strategy to accrue a user's rewards on
+    */
     function addStrategyForRewards(ERC20 strategy) external onlyOwner {
         _addStrategyForRewards(strategy);
     }
 
+    /**
+      @notice Initialize a new strategy
+      @param  strategy  ERC20  The strategy to accrue a user's rewards on
+    */
     function _addStrategyForRewards(ERC20 strategy) internal {
         require(strategyState[strategy].index == 0, "strategy");
         strategyState[strategy] = RewardsState({
@@ -167,6 +175,10 @@ contract FeiFlywheelCoreV2 is Owned {
         emit AddStrategy(address(strategy));
     }
 
+    /**
+      @notice Get strategies
+      @return ERC20[]  The list of strategies
+    */
     function getAllStrategies() external view returns (ERC20[] memory) {
         return allStrategies;
     }
@@ -175,7 +187,12 @@ contract FeiFlywheelCoreV2 is Owned {
                     INTERNAL ACCOUNTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice accumulate global rewards on a strategy
+    /**
+      @notice Sync strategy state with rewards
+      @param  strategy        ERC20         The strategy to accrue a user's rewards on
+      @param  state           RewardsState  The strategy rewards state
+      @param  accruedRewards  uint256       The rewards amount accrued by the strategy
+    */
     function accrueStrategy(
         ERC20 strategy,
         RewardsState memory state,
@@ -184,7 +201,7 @@ contract FeiFlywheelCoreV2 is Owned {
         rewardsState = state;
 
         if (accruedRewards > 0) {
-            // use the booster or token supply to calculate reward index denominator
+            // Use the booster or token supply to calculate reward index denominator
             uint256 supplyTokens = strategy.totalSupply();
 
             uint224 deltaIndex;
@@ -193,7 +210,7 @@ contract FeiFlywheelCoreV2 is Owned {
                 deltaIndex = ((accruedRewards * ONE) / supplyTokens)
                     .safeCastTo224();
 
-            // accumulate rewards per token onto the index, multiplied by fixed-point factor
+            // Accumulate rewards per token onto the index, multiplied by fixed-point factor
             rewardsState = RewardsState({
                 index: state.index + deltaIndex,
                 lastUpdatedTimestamp: block.timestamp.safeCastTo32()
@@ -202,28 +219,33 @@ contract FeiFlywheelCoreV2 is Owned {
         }
     }
 
-    /// @notice accumulate rewards on a strategy for a specific user
+    /**
+      @notice Sync user state with strategy
+      @param  strategy  ERC20         The strategy to accrue a user's rewards on
+      @param  user      address       The user to
+      @param  state     RewardsState  The strategy rewards state
+    */
     function accrueUser(
         ERC20 strategy,
         address user,
         RewardsState memory state
     ) private returns (uint256) {
-        // load indices
+        // Load indices
         uint224 strategyIndex = state.index;
         uint224 supplierIndex = userIndex[strategy][user];
 
-        // sync user index to global
+        // Sync user index to global
         userIndex[strategy][user] = strategyIndex;
 
-        // if user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
-        // zero balances will have no effect other than syncing to global index
+        // If user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
+        // Zero balances will have no effect other than syncing to global index
         if (supplierIndex == 0) {
             supplierIndex = ONE;
         }
 
         uint224 deltaIndex = strategyIndex - supplierIndex;
 
-        // accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
+        // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
         uint256 supplierDelta = (strategy.balanceOf(user) * deltaIndex) / ONE;
         uint256 supplierAccrued = rewardsAccrued[user] + supplierDelta;
 
