@@ -7,8 +7,9 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {TransparentUpgradeableProxy} from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {PirexRewards} from "src/PirexRewards.sol";
 import {PirexRewardsMock} from "src/mocks/PirexRewardsMock.sol";
+import {FeiFlywheelCoreV2} from "src/modified/FeiFlywheelCoreV2.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
-import {Helper} from "./Helper.sol";
+import {Helper} from "test/Helper.sol";
 
 contract PirexRewardsTest is Helper {
     /**
@@ -57,7 +58,7 @@ contract PirexRewardsTest is Helper {
 
         address invalidProducer = address(0);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setProducer(invalidProducer);
     }
@@ -92,7 +93,7 @@ contract PirexRewardsTest is Helper {
     function testCannotGlobalAccrueProducerTokenZeroAddress() external {
         ERC20 invalidProducerToken = ERC20(address(0));
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.globalAccrue(invalidProducerToken);
     }
@@ -269,7 +270,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         address user = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.userAccrue(invalidProducerToken, user);
     }
@@ -281,7 +282,7 @@ contract PirexRewardsTest is Helper {
         ERC20 producerToken = pxGlp;
         address invalidUser = address(0);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.userAccrue(producerToken, invalidUser);
     }
@@ -951,7 +952,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address recipient = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipient(
             invalidProducerToken,
@@ -968,7 +969,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidRewardToken = ERC20(address(0));
         address recipient = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipient(
             producerToken,
@@ -985,7 +986,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address invalidRecipient = address(0);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipient(
             producerToken,
@@ -1042,7 +1043,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         ERC20 rewardToken = weth;
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipient(invalidProducerToken, rewardToken);
     }
@@ -1054,7 +1055,7 @@ contract PirexRewardsTest is Helper {
         ERC20 producerToken = pxGlp;
         ERC20 invalidRewardToken = ERC20(address(0));
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipient(producerToken, invalidRewardToken);
     }
@@ -1129,7 +1130,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         ERC20 rewardToken = ERC20(address(0));
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.addRewardToken(invalidProducerToken, rewardToken);
     }
@@ -1141,7 +1142,7 @@ contract PirexRewardsTest is Helper {
         ERC20 producerToken = pxGlp;
         ERC20 invalidRewardToken = ERC20(address(0));
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.addRewardToken(producerToken, invalidRewardToken);
     }
@@ -1220,7 +1221,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         uint256 removalIndex = 0;
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.removeRewardToken(invalidProducerToken, removalIndex);
     }
@@ -1327,7 +1328,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         address user = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.claim(invalidProducerToken, user);
     }
@@ -1339,7 +1340,7 @@ contract PirexRewardsTest is Helper {
         ERC20 producerToken = pxGlp;
         address invalidUser = address(0);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.claim(producerToken, invalidUser);
     }
@@ -1526,7 +1527,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address recipient = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -1547,7 +1548,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidRewardToken = ERC20(address(0));
         address recipient = address(this);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -1568,7 +1569,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address invalidRecipient = address(0);
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -1684,7 +1685,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidProducerToken = ERC20(address(0));
         ERC20 rewardToken = weth;
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipientPrivileged(
             lpContract,
@@ -1703,7 +1704,7 @@ contract PirexRewardsTest is Helper {
         ERC20 producerToken = pxGlp;
         ERC20 invalidRewardToken = ERC20(address(0));
 
-        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipientPrivileged(
             lpContract,

@@ -13,14 +13,14 @@ import {Owned} from "solmate/auth/Owned.sol";
     https://raw.githubusercontent.com/fei-protocol/flywheel-v2/dbe3cb81a3dc2e46536bb8af9c2bdc585f63425e/src/FlywheelCore.sol
 
     @notice Pirex-GMX modifications
-        - Replace Solmate Auth with Solmate Owned
+        - Remove access control and remove public-facing privileged methods
         - Removed Flywheel rewards and booster modules
         - Hoist (in code) contract types and variables
         - Update styling to conform with Pirex practices
         - Add function parameter validation and associated errors
         - Update strategy type to bytes (abi-encoded producer and reward ERC20-type contracts)
 */
-contract FeiFlywheelCoreV2 is Owned {
+contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
@@ -76,8 +76,6 @@ contract FeiFlywheelCoreV2 is Owned {
     error InvalidStrategy();
     error ZeroAddress();
     error StrategyAlreadySet();
-
-    constructor() Owned(msg.sender) {}
 
     /*///////////////////////////////////////////////////////////////
                         ACCRUE/CLAIM LOGIC
@@ -162,21 +160,6 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Initialize a new strategy
-      @param  producer  ERC20  The producer token contract
-      @param  reward    ERC20  The producer reward token contract
-    */
-    function addStrategyForRewards(ERC20 producer, ERC20 reward)
-        external
-        onlyOwner
-    {
-        if (address(producer) == address(0)) revert ZeroAddress();
-        if (address(reward) == address(0)) revert ZeroAddress();
-
-        _addStrategyForRewards(abi.encode(producer, reward));
-    }
-
-    /**
-      @notice Initialize a new strategy
       @param  strategy  bytes  The strategy to accrue a user's rewards on
     */
     function _addStrategyForRewards(bytes memory strategy) internal {
@@ -228,7 +211,7 @@ contract FeiFlywheelCoreV2 is Owned {
         bytes memory strategy,
         RewardsState memory state,
         uint256 accruedRewards
-    ) private returns (RewardsState memory rewardsState) {
+    ) internal returns (RewardsState memory rewardsState) {
         rewardsState = state;
 
         if (accruedRewards > 0) {

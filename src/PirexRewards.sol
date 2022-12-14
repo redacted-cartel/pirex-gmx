@@ -7,12 +7,13 @@ import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
 import {GlobalState, UserState} from "src/Common.sol";
+import {FeiFlywheelCoreV2} from "src/modified/FeiFlywheelCoreV2.sol";
 
 /**
     Originally inspired by Flywheel V2 (thank you Tribe team):
     https://github.com/fei-protocol/flywheel-v2/blob/dbe3cb8/src/FlywheelCore.sol
 */
-contract PirexRewards is OwnableUpgradeable {
+contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
@@ -78,7 +79,6 @@ contract PirexRewards is OwnableUpgradeable {
         ERC20 indexed rewardToken
     );
 
-    error ZeroAddress();
     error NotContract();
     error TokenAlreadyAdded();
 
