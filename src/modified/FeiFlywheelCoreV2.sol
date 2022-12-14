@@ -18,6 +18,7 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Hoist (in code) contract types and variables
         - Update styling to conform with Pirex practices
         - Add function parameter validation and associated errors
+        - Update strategy type to bytes (abi-encoded producer and reward ERC20-type contracts)
 */
 contract FeiFlywheelCoreV2 is Owned {
     using SafeTransferLib for ERC20;
@@ -34,26 +35,26 @@ contract FeiFlywheelCoreV2 is Owned {
     uint224 public constant ONE = 1e18;
 
     // Append-only list of strategies added
-    ERC20[] public allStrategies;
+    bytes[] public allStrategies;
 
     // The strategy index and last updated per strategy
-    mapping(ERC20 => RewardsState) public strategyState;
+    mapping(bytes => RewardsState) public strategyState;
 
     // User index per strategy
-    mapping(ERC20 => mapping(address => uint224)) public userIndex;
+    mapping(bytes => mapping(address => uint224)) public userIndex;
 
     // The accrued but not yet transferred rewards for each user
     mapping(address => uint256) public rewardsAccrued;
 
     /**
       @notice Emitted when a user's rewards accrue to a given strategy.
-      @param  strategy      ERC20    The updated rewards strategy
+      @param  strategy      bytes    The updated rewards strategy
       @param  user          address  The user of the rewards
       @param  rewardsDelta  uint256  How many new rewards accrued to the user
       @param  rewardsIndex  uint256  The market index for rewards per token accrued
     */
     event AccrueRewards(
-        ERC20 indexed strategy,
+        bytes indexed strategy,
         address indexed user,
         uint256 rewardsDelta,
         uint256 rewardsIndex
@@ -68,10 +69,11 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Emitted when a new strategy is added to flywheel by the admin
-      @param  newStrategy  address  The new added strategy
+      @param  newStrategy  bytes  The new added strategy
     */
-    event AddStrategy(address indexed newStrategy);
+    event AddStrategy(bytes indexed newStrategy);
 
+    error InvalidStrategy();
     error ZeroAddress();
     error StrategyAlreadySet();
 
@@ -83,18 +85,18 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Accrue rewards for a single user on a strategy
-      @param  strategy        ERC20    The strategy to accrue a user's rewards on
+      @param  strategy        bytes    The strategy to accrue a user's rewards on
       @param  accruedRewards  uint256  The rewards amount accrued by the strategy
       @param  user            address  The user to be accrued
       @return                 uint256  The cumulative amount of rewards accrued to user (including prior)
     */
     function accrue(
-        ERC20 strategy,
+        bytes memory strategy,
         uint256 accruedRewards,
         address user
     ) public returns (uint256) {
         // Only strategy needs to be validated since accruedRewards and user can be zero values
-        if (address(strategy) == address(0)) revert ZeroAddress();
+        if (strategy.length == 0) revert InvalidStrategy();
 
         RewardsState memory state = strategyState[strategy];
 
@@ -106,7 +108,7 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Accrue rewards for a two users on a strategy
-      @param  strategy        ERC20    The strategy to accrue a user's rewards on
+      @param  strategy        bytes    The strategy to accrue a user's rewards on
       @param  accruedRewards  uint256  The rewards amount accrued by the strategy
       @param  user            address  The first user to be accrued
       @param  secondUser      address  The second user to be accrued
@@ -114,12 +116,12 @@ contract FeiFlywheelCoreV2 is Owned {
       @return                 uint256  The cumulative amount of rewards accrued to the second user (including prior)
     */
     function accrue(
-        ERC20 strategy,
+        bytes memory strategy,
         uint256 accruedRewards,
         address user,
         address secondUser
     ) public returns (uint256, uint256) {
-        if (address(strategy) == address(0)) revert ZeroAddress();
+        if (strategy.length == 0) revert InvalidStrategy();
 
         // Users are validated since there's no reason to call this variant of accrue if either are zero addresses
         if (user == address(0)) revert ZeroAddress();
@@ -160,19 +162,24 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Initialize a new strategy
-      @param  strategy  ERC20  The strategy to accrue a user's rewards on
+      @param  producer  ERC20  The producer token contract
+      @param  reward    ERC20  The producer reward token contract
     */
-    function addStrategyForRewards(ERC20 strategy) external onlyOwner {
-        if (address(strategy) == address(0)) revert ZeroAddress();
+    function addStrategyForRewards(ERC20 producer, ERC20 reward)
+        external
+        onlyOwner
+    {
+        if (address(producer) == address(0)) revert ZeroAddress();
+        if (address(reward) == address(0)) revert ZeroAddress();
 
-        _addStrategyForRewards(strategy);
+        _addStrategyForRewards(abi.encode(producer, reward));
     }
 
     /**
       @notice Initialize a new strategy
-      @param  strategy  ERC20  The strategy to accrue a user's rewards on
+      @param  strategy  bytes  The strategy to accrue a user's rewards on
     */
-    function _addStrategyForRewards(ERC20 strategy) internal {
+    function _addStrategyForRewards(bytes memory strategy) internal {
         if (strategyState[strategy].index != 0) revert StrategyAlreadySet();
 
         strategyState[strategy] = RewardsState({
@@ -182,15 +189,29 @@ contract FeiFlywheelCoreV2 is Owned {
 
         allStrategies.push(strategy);
 
-        emit AddStrategy(address(strategy));
+        emit AddStrategy(strategy);
     }
 
     /**
       @notice Get strategies
-      @return ERC20[]  The list of strategies
+      @return bytes[]  The list of strategies
     */
-    function getAllStrategies() external view returns (ERC20[] memory) {
+    function getAllStrategies() external view returns (bytes[] memory) {
         return allStrategies;
+    }
+
+    /**
+      @notice Decode strategy
+      @param  strategy  bytes  The abi-encoded strategy to accrue a user's rewards on
+      @return producer  ERC20  The producer contract (produces rewards)
+      @return reward    ERC20  The producer reward contract
+    */
+    function _decodeStrategy(bytes memory strategy)
+        internal
+        pure
+        returns (ERC20 producer, ERC20 reward)
+    {
+        return abi.decode(strategy, (ERC20, ERC20));
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -199,20 +220,22 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Sync strategy state with rewards
-      @param  strategy        ERC20         The strategy to accrue a user's rewards on
+      @param  strategy        bytes         The strategy to accrue a user's rewards on
       @param  state           RewardsState  The strategy rewards state
       @param  accruedRewards  uint256       The rewards amount accrued by the strategy
     */
     function accrueStrategy(
-        ERC20 strategy,
+        bytes memory strategy,
         RewardsState memory state,
         uint256 accruedRewards
     ) private returns (RewardsState memory rewardsState) {
         rewardsState = state;
 
         if (accruedRewards > 0) {
+            (ERC20 producer, ) = _decodeStrategy(strategy);
+
             // Use the booster or token supply to calculate reward index denominator
-            uint256 supplyTokens = strategy.totalSupply();
+            uint256 supplyTokens = producer.totalSupply();
 
             uint224 deltaIndex;
 
@@ -231,12 +254,12 @@ contract FeiFlywheelCoreV2 is Owned {
 
     /**
       @notice Sync user state with strategy
-      @param  strategy  ERC20         The strategy to accrue a user's rewards on
+      @param  strategy  bytes         The strategy to accrue a user's rewards on
       @param  user      address       The user to
       @param  state     RewardsState  The strategy rewards state
     */
     function accrueUser(
-        ERC20 strategy,
+        bytes memory strategy,
         address user,
         RewardsState memory state
     ) private returns (uint256) {
@@ -254,9 +277,10 @@ contract FeiFlywheelCoreV2 is Owned {
         }
 
         uint224 deltaIndex = strategyIndex - supplierIndex;
+        (ERC20 producer, ) = _decodeStrategy(strategy);
 
         // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
-        uint256 supplierDelta = (strategy.balanceOf(user) * deltaIndex) / ONE;
+        uint256 supplierDelta = (producer.balanceOf(user) * deltaIndex) / ONE;
         uint256 supplierAccrued = rewardsAccrued[user] + supplierDelta;
 
         rewardsAccrued[user] = supplierAccrued;
