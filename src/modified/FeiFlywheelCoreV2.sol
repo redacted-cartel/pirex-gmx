@@ -16,6 +16,8 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Replace Solmate Auth with Solmate Owned
         - Removed Flywheel rewards and booster modules
         - Hoist (in code) contract types and variables
+        - Update styling to conform with Pirex practices
+        - Add function parameter validation and associated errors
 */
 contract FeiFlywheelCoreV2 is Owned {
     using SafeTransferLib for ERC20;
@@ -73,6 +75,9 @@ contract FeiFlywheelCoreV2 is Owned {
     */
     event AddStrategy(address indexed newStrategy);
 
+    error ZeroAddress();
+    error StrategyAlreadySet();
+
     constructor(ERC20 _rewardToken) Owned(msg.sender) {
         rewardToken = _rewardToken;
     }
@@ -93,6 +98,9 @@ contract FeiFlywheelCoreV2 is Owned {
         uint256 accruedRewards,
         address user
     ) public returns (uint256) {
+        // Only strategy needs to be validated since accruedRewards and user can be zero values
+        if (address(strategy) == address(0)) revert ZeroAddress();
+
         RewardsState memory state = strategyState[strategy];
 
         if (state.index == 0) return 0;
@@ -116,6 +124,12 @@ contract FeiFlywheelCoreV2 is Owned {
         address user,
         address secondUser
     ) public returns (uint256, uint256) {
+        if (address(strategy) == address(0)) revert ZeroAddress();
+
+        // Users are validated since there's no reason to call this variant of accrue if either are zero addresses
+        if (user == address(0)) revert ZeroAddress();
+        if (secondUser == address(0)) revert ZeroAddress();
+
         RewardsState memory state = strategyState[strategy];
 
         if (state.index == 0) return (0, 0);
@@ -132,6 +146,8 @@ contract FeiFlywheelCoreV2 is Owned {
       @param  user  address  The user claiming rewards
     */
     function claimRewards(address user) external {
+        if (user == address(0)) revert ZeroAddress();
+
         uint256 accrued = rewardsAccrued[user];
 
         if (accrued != 0) {
@@ -157,6 +173,8 @@ contract FeiFlywheelCoreV2 is Owned {
       @param  strategy  ERC20  The strategy to accrue a user's rewards on
     */
     function addStrategyForRewards(ERC20 strategy) external onlyOwner {
+        if (address(strategy) == address(0)) revert ZeroAddress();
+
         _addStrategyForRewards(strategy);
     }
 
@@ -165,13 +183,15 @@ contract FeiFlywheelCoreV2 is Owned {
       @param  strategy  ERC20  The strategy to accrue a user's rewards on
     */
     function _addStrategyForRewards(ERC20 strategy) internal {
-        require(strategyState[strategy].index == 0, "strategy");
+        if (strategyState[strategy].index != 0) revert StrategyAlreadySet();
+
         strategyState[strategy] = RewardsState({
             index: ONE,
             lastUpdatedTimestamp: block.timestamp.safeCastTo32()
         });
 
         allStrategies.push(strategy);
+
         emit AddStrategy(address(strategy));
     }
 
