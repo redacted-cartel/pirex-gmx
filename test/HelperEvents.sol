@@ -77,11 +77,6 @@ contract HelperEvents {
         ERC20 indexed producerToken,
         ERC20 indexed rewardToken
     );
-    event AddRewardToken(
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
-    );
-    event RemoveRewardToken(ERC20 indexed producerToken, uint256 removalIndex);
     event GlobalAccrue(
         ERC20 indexed producerToken,
         uint256 lastUpdate,
@@ -112,6 +107,7 @@ contract HelperEvents {
         ERC20 indexed producerToken,
         ERC20 indexed rewardToken
     );
+    event AddStrategy(bytes indexed newStrategy);
 
     // PirexFees events
     event SetFeeRecipient(PirexFees.FeeRecipient f, address recipient);

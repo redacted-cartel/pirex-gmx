@@ -43,11 +43,6 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         ERC20 indexed producerToken,
         ERC20 indexed rewardToken
     );
-    event AddRewardToken(
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
-    );
-    event RemoveRewardToken(ERC20 indexed producerToken, uint256 removalIndex);
     event GlobalAccrue(
         ERC20 indexed producerToken,
         uint256 lastUpdate,
@@ -144,56 +139,18 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Add a reward token to a producer token's rewardTokens array
+        @notice Add a strategy comprised of a producer and reward token
         @param  producerToken  ERC20  Producer token contract
         @param  rewardToken    ERC20  Reward token contract
     */
-    function addRewardToken(ERC20 producerToken, ERC20 rewardToken)
+    function addStrategyForRewards(ERC20 producerToken, ERC20 rewardToken)
         external
         onlyOwner
     {
         if (address(producerToken) == address(0)) revert ZeroAddress();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        // Check if the token has been added previously for the specified producer
-        ProducerToken storage p = producerTokens[producerToken];
-        ERC20[] memory rewardTokens = p.rewardTokens;
-        uint256 len = rewardTokens.length;
-
-        for (uint256 i; i < len; ++i) {
-            if (address(rewardTokens[i]) == address(rewardToken)) {
-                revert TokenAlreadyAdded();
-            }
-        }
-
-        p.rewardTokens.push(rewardToken);
-
-        emit AddRewardToken(producerToken, rewardToken);
-    }
-
-    /**
-        @notice Remove a reward token from a producer token's rewardTokens array
-        @param  producerToken  ERC20    Producer token contract
-        @param  removalIndex   uint256  Index of the element to be removed
-    */
-    function removeRewardToken(ERC20 producerToken, uint256 removalIndex)
-        external
-        onlyOwner
-    {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
-
-        ERC20[] storage rewardTokens = producerTokens[producerToken]
-            .rewardTokens;
-        uint256 lastIndex = rewardTokens.length - 1;
-
-        if (removalIndex != lastIndex) {
-            // Set the element at removalIndex to the last element
-            rewardTokens[removalIndex] = rewardTokens[lastIndex];
-        }
-
-        rewardTokens.pop();
-
-        emit RemoveRewardToken(producerToken, removalIndex);
+        _addStrategyForRewards(abi.encode(producerToken, rewardToken));
     }
 
     /**

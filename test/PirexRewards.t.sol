@@ -840,7 +840,13 @@ contract PirexRewardsTest is Helper {
 
         // Perform initial pxGMX+pxGLP deposits for all test accounts before calling harvest
         _depositGmxForTestAccounts(true, address(this), multiplier);
-        _depositGlpForTestAccounts(true, address(this), multiplier, useETH, hasCooldown);
+        _depositGlpForTestAccounts(
+            true,
+            address(this),
+            multiplier,
+            useETH,
+            hasCooldown
+        );
 
         ERC20[] memory expectedProducerTokens = new ERC20[](4);
         ERC20[] memory expectedRewardTokens = new ERC20[](4);
@@ -1112,209 +1118,62 @@ contract PirexRewardsTest is Helper {
     /**
         @notice Test tx reversion: caller is not authorized
      */
-    function testCannotAddRewardTokenNotAuthorized() external {
+    function testCannotAddStrategyForRewardsNotAuthorized() external {
         ERC20 producerToken = pxGlp;
         ERC20 rewardToken = weth;
 
         vm.expectRevert(NOT_OWNER_ERROR);
-
         vm.prank(testAccounts[0]);
 
-        pirexRewards.addRewardToken(producerToken, rewardToken);
+        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
     }
 
     /**
         @notice Test tx reversion: producerToken is zero address
      */
-    function testCannotAddRewardTokenProducerTokenZeroAddress() external {
+    function testCannotAddStrategyForRewardsProducerTokenZeroAddress()
+        external
+    {
         ERC20 invalidProducerToken = ERC20(address(0));
         ERC20 rewardToken = ERC20(address(0));
 
         vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
-        pirexRewards.addRewardToken(invalidProducerToken, rewardToken);
+        pirexRewards.addStrategyForRewards(invalidProducerToken, rewardToken);
     }
 
     /**
         @notice Test tx reversion: rewardToken is zero address
      */
-    function testCannotAddRewardTokenRewardTokenZeroAddress() external {
+    function testCannotAddStrategyForRewardsRewardTokenZeroAddress() external {
         ERC20 producerToken = pxGlp;
         ERC20 invalidRewardToken = ERC20(address(0));
 
         vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
 
-        pirexRewards.addRewardToken(producerToken, invalidRewardToken);
+        pirexRewards.addStrategyForRewards(producerToken, invalidRewardToken);
     }
 
     /**
-        @notice Test tx reversion: rewardToken is already added before
+        @notice Test tx success: add a strategy
      */
-    function testCannotAddRewardTokenAlreadyAdded() external {
+    function testAddStrategyForRewards() external {
         ERC20 producerToken = pxGlp;
         ERC20 rewardToken = weth;
-
-        // Add a record before attempting to add the same token again
-        pirexRewards.addRewardToken(producerToken, rewardToken);
-
-        ERC20[] memory rewardTokensBeforePush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-        uint256 len = rewardTokensBeforePush.length;
-
-        assertEq(1, len);
-
-        // Attempt to add the same token
-        vm.expectRevert(PirexRewards.TokenAlreadyAdded.selector);
-
-        pirexRewards.addRewardToken(producerToken, rewardToken);
-    }
-
-    /**
-        @notice Test tx success: add reward token
-     */
-    function testAddRewardToken() external {
-        ERC20 producerToken = pxGlp;
-        ERC20 rewardToken = weth;
-        ERC20[] memory rewardTokensBeforePush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-
-        assertEq(0, rewardTokensBeforePush.length);
-
-        vm.expectEmit(true, true, false, true, address(pirexRewards));
-
-        emit AddRewardToken(producerToken, rewardToken);
-
-        pirexRewards.addRewardToken(producerToken, rewardToken);
-
-        ERC20[] memory rewardTokensAfterPush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-
-        assertEq(1, rewardTokensAfterPush.length);
-        assertEq(address(rewardToken), address(rewardTokensAfterPush[0]));
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        removeRewardToken TESTS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-        @notice Test tx reversion: caller is not authorized
-     */
-    function testCannotRemoveRewardTokenNotAuthorized() external {
-        ERC20 producerToken = pxGlp;
-        uint256 removalIndex = 0;
-
-        vm.expectRevert(NOT_OWNER_ERROR);
-
-        vm.prank(testAccounts[0]);
-
-        pirexRewards.removeRewardToken(producerToken, removalIndex);
-    }
-
-    /**
-        @notice Test tx reversion: producerToken is zero address
-     */
-    function testCannotRemoveRewardTokenProducerTokenZeroAddress() external {
-        ERC20 invalidProducerToken = ERC20(address(0));
-        uint256 removalIndex = 0;
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.removeRewardToken(invalidProducerToken, removalIndex);
-    }
-
-    /**
-        @notice Test tx reversion: invalid index (empty list)
-     */
-    function testCannotRemoveRewardTokenArithmeticError() external {
-        ERC20 producerToken = pxGlp;
-        uint256 invalidRemovalIndex = 1;
-
-        ERC20[] memory rewardTokensBeforePush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-        uint256 len = rewardTokensBeforePush.length;
-
-        assertEq(0, len);
-        assertTrue(invalidRemovalIndex > len);
-
-        vm.expectRevert(stdError.arithmeticError);
-
-        pirexRewards.removeRewardToken(producerToken, invalidRemovalIndex);
-    }
-
-    /**
-        @notice Test tx reversion: invalid index (index out of bounds on non empty list)
-     */
-    function testCannotRemoveRewardTokenIndexOutOfBounds() external {
-        ERC20 producerToken = pxGlp;
-        ERC20 rewardToken = weth;
-        uint256 invalidRemovalIndex = 2;
-
-        // Add a record then attempt to remove using larger index
-        pirexRewards.addRewardToken(producerToken, rewardToken);
-
-        ERC20[] memory rewardTokensBeforePush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-        uint256 len = rewardTokensBeforePush.length;
-
-        assertEq(1, len);
-        assertTrue(invalidRemovalIndex > len);
-
-        // Attemp to remove with invalid index (>= array size)
-        vm.expectRevert(stdError.indexOOBError);
-
-        pirexRewards.removeRewardToken(producerToken, invalidRemovalIndex);
-    }
-
-    /**
-        @notice Test tx success: remove reward token at a random index
-        @param  removalIndex  uint8  Index of the element to be removed
-     */
-    function testRemoveRewardToken(uint8 removalIndex) external {
-        vm.assume(removalIndex < 2);
-
-        ERC20 producerToken = pxGlp;
-        address rewardToken1 = address(weth);
-        address rewardToken2 = address(this);
-
-        ERC20[] memory rewardTokensBeforePush = pirexRewards.getRewardTokens(
-            producerToken
-        );
-
-        assertEq(0, rewardTokensBeforePush.length);
-
-        // Add rewardTokens to array to test proper removal
-        pirexRewards.addRewardToken(producerToken, ERC20(rewardToken1));
-        pirexRewards.addRewardToken(producerToken, ERC20(rewardToken2));
-
-        ERC20[] memory rewardTokensBeforeRemoval = pirexRewards.getRewardTokens(
-            producerToken
-        );
-
-        assertEq(2, rewardTokensBeforeRemoval.length);
-        assertEq(rewardToken1, address(rewardTokensBeforeRemoval[0]));
-        assertEq(rewardToken2, address(rewardTokensBeforeRemoval[1]));
+        bytes memory strategy = abi.encode(producerToken, rewardToken);
 
         vm.expectEmit(true, false, false, true, address(pirexRewards));
 
-        emit RemoveRewardToken(producerToken, removalIndex);
+        emit AddStrategy(strategy);
 
-        pirexRewards.removeRewardToken(producerToken, removalIndex);
+        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
 
-        ERC20[] memory rewardTokensAfterRemoval = pirexRewards.getRewardTokens(
-            producerToken
-        );
-        address remainingToken = removalIndex == 0
-            ? rewardToken2
-            : rewardToken1;
+        bytes[] memory strategies = pirexRewards.getAllStrategies();
+        (uint224 index, uint32 lastUpdatedTimestamp) = pirexRewards.strategyState(strategy);
 
-        assertEq(1, rewardTokensAfterRemoval.length);
-        assertEq(remainingToken, address(rewardTokensAfterRemoval[0]));
+        assertEq(strategy, strategies[strategies.length - 1]);
+        assertEq(index, pirexRewards.ONE());
+        assertEq(block.timestamp, lastUpdatedTimestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1366,13 +1225,19 @@ contract PirexRewardsTest is Helper {
         vm.assume(multiplier < 10);
 
         _depositGmxForTestAccounts(true, address(this), multiplier);
-        _depositGlpForTestAccounts(true, address(this), multiplier, useETH, hasCooldown);
+        _depositGlpForTestAccounts(
+            true,
+            address(this),
+            multiplier,
+            useETH,
+            hasCooldown
+        );
 
         vm.warp(block.timestamp + secondsElapsed);
 
         // Add reward token and harvest rewards from Pirex contract
-        pirexRewards.addRewardToken(pxGmx, weth);
-        pirexRewards.addRewardToken(pxGlp, weth);
+        pirexRewards.addStrategyForRewards(pxGmx, weth);
+        pirexRewards.addStrategyForRewards(pxGlp, weth);
         pirexRewards.harvest();
 
         for (uint256 i; i < testAccounts.length; ++i) {

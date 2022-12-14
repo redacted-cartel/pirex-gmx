@@ -623,8 +623,8 @@ contract PirexFeesTest is Helper {
         vm.assume(multiplier < 10);
 
         // Set up rewards state and accrual
-        pirexRewards.addRewardToken(pxGmx, pxGmx);
-        pirexRewards.addRewardToken(pxGmx, weth);
+        pirexRewards.addStrategyForRewards(pxGmx, pxGmx);
+        pirexRewards.addStrategyForRewards(pxGmx, weth);
 
         // Mint pxGMX to accrue rewards and test fee distribution for all test accounts
         _depositGmxForTestAccounts(false, address(this), multiplier);

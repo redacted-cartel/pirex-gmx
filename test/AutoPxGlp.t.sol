@@ -124,10 +124,10 @@ contract AutoPxGlpTest is Helper {
         bool useETH,
         bool hasCooldown
     ) internal {
-        pirexRewards.addRewardToken(pxGmx, weth);
-        pirexRewards.addRewardToken(pxGmx, pxGmx);
-        pirexRewards.addRewardToken(pxGlp, weth);
-        pirexRewards.addRewardToken(pxGlp, pxGmx);
+        pirexRewards.addStrategyForRewards(pxGmx, weth);
+        pirexRewards.addStrategyForRewards(pxGmx, pxGmx);
+        pirexRewards.addStrategyForRewards(pxGlp, weth);
+        pirexRewards.addStrategyForRewards(pxGlp, pxGmx);
 
         // Some tests require different deposit setup, only process those with non-zero multiplier
         if (multiplier > 0) {

@@ -67,8 +67,8 @@ contract AutoPxGmxTest is Helper {
 
         vm.warp(block.timestamp + secondsElapsed);
 
-        pirexRewards.addRewardToken(pxGmx, weth);
-        pirexRewards.addRewardToken(pxGmx, pxGmx);
+        pirexRewards.addStrategyForRewards(pxGmx, weth);
+        pirexRewards.addStrategyForRewards(pxGmx, pxGmx);
         pirexRewards.harvest();
 
         wethRewardState = pirexRewards.getRewardState(pxGmx, weth);
