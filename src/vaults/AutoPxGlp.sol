@@ -83,7 +83,7 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         platform = _platform;
         rewardsModule = _rewardsModule;
 
-        // Approve the Uniswap V3 router to manage our base reward (inbound swap token)
+        // Approve the main Pirex contract to manage our base reward (inbound swap token)
         gmxBaseReward.safeApprove(address(_platform), type(uint256).max);
     }
 
