@@ -392,29 +392,9 @@ contract AutoPxGmxTest is Helper {
     //////////////////////////////////////////////////////////////*/
 
     /**
-        @notice Test tx reversion: fee is invalid param
-     */
-    function testCannotCompoundFeeInvalidParam() external {
-        uint24 invalidFee = 0;
-        uint256 amountOutMinimum = 1;
-        uint160 sqrtPriceLimitX96 = 1;
-        bool optOutIncentive = true;
-
-        vm.expectRevert(AutoPxGmx.InvalidParam.selector);
-
-        autoPxGmx.compound(
-            invalidFee,
-            amountOutMinimum,
-            sqrtPriceLimitX96,
-            optOutIncentive
-        );
-    }
-
-    /**
         @notice Test tx reversion: amountOutMinimum is invalid param
      */
     function testCannotCompoundAmountOutMinimumInvalidParam() external {
-        uint24 fee = 3000;
         uint256 invalidAmountOutMinimum = 0;
         uint160 sqrtPriceLimitX96 = 1;
         bool optOutIncentive = true;
@@ -422,7 +402,6 @@ contract AutoPxGmxTest is Helper {
         vm.expectRevert(AutoPxGmx.InvalidParam.selector);
 
         autoPxGmx.compound(
-            fee,
             invalidAmountOutMinimum,
             sqrtPriceLimitX96,
             optOutIncentive
@@ -473,7 +452,7 @@ contract AutoPxGmxTest is Helper {
             uint256 pxGmxMintAmount,
             uint256 totalFee,
             uint256 incentive
-        ) = autoPxGmx.compound(3000, 1, 0, false);
+        ) = autoPxGmx.compound(1, 0, false);
 
         uint256 expectedTotalFee = ((pxGmxMintAmount + pxGmxRewardState) *
             autoPxGmx.platformFee()) / autoPxGmx.FEE_DENOMINATOR();
