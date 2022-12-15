@@ -58,6 +58,84 @@ contract PirexRewardsTest is Helper {
     }
 
     /*//////////////////////////////////////////////////////////////
+                        addStrategyForRewards TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice Test tx reversion: producerToken is zero address
+     */
+    function testCannotAddStrategyForRewardsProducerTokenZeroAddress()
+        external
+    {
+        ERC20 invalidProducerToken = ERC20(address(0));
+        ERC20 rewardToken = weth;
+
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+
+        pirexRewards.addStrategyForRewards(invalidProducerToken, rewardToken);
+    }
+
+    /**
+        @notice Test tx reversion: rewardToken is zero address
+     */
+    function testCannotAddStrategyForRewardsRewardTokenZeroAddress() external {
+        ERC20 producerToken = pxGmx;
+        ERC20 invalidRewardToken = ERC20(address(0));
+
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+
+        pirexRewards.addStrategyForRewards(producerToken, invalidRewardToken);
+    }
+
+    /**
+        @notice Test tx reversion: strategy is already set
+     */
+    function testCannotAddStrategyForRewardsAlreadySet() external {
+        ERC20 producerToken = pxGmx;
+        ERC20 rewardToken = weth;
+
+        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
+
+        vm.expectRevert(FeiFlywheelCoreV2.StrategyAlreadySet.selector);
+
+        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
+    }
+
+    /**
+        @notice Test tx success: add strategy
+     */
+    function testAddStrategyForRewards() external {
+        ERC20[] memory producerTokens = new ERC20[](2);
+        ERC20[] memory rewardTokens = new ERC20[](2);
+        producerTokens[0] = pxGmx;
+        producerTokens[1] = pxGlp;
+        rewardTokens[0] = weth;
+        rewardTokens[1] = pxGmx;
+
+        for (uint256 i; i < producerTokens.length; ++i) {
+            for (uint256 j; j < rewardTokens.length; ++j) {
+                bytes memory strategy = abi.encode(
+                    producerTokens[i],
+                    rewardTokens[j]
+                );
+
+                vm.expectEmit(true, false, false, true, address(pirexRewards));
+
+                emit AddStrategy(strategy);
+
+                pirexRewards.addStrategyForRewards(
+                    producerTokens[i],
+                    rewardTokens[j]
+                );
+
+                bytes[] memory allStrategies = pirexRewards.getAllStrategies();
+
+                assertEq(strategy, allStrategies[allStrategies.length - 1]);
+            }
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         setRewardRecipient TESTS
     //////////////////////////////////////////////////////////////*/
 
