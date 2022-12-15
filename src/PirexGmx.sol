@@ -940,7 +940,7 @@ contract PirexGmx is ReentrancyGuard, Owned, Pausable {
         if (oldContract == address(0)) revert ZeroAddress();
 
         // Trigger harvest to claim remaining rewards before the account transfer
-        IPirexRewards(pirexRewards).harvest();
+        IPirexRewards(pirexRewards).accrueStrategy();
 
         // Complete the full account transfer process
         gmxRewardRouterV2.acceptTransfer(oldContract);

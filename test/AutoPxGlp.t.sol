@@ -190,7 +190,7 @@ contract AutoPxGlpTest is Helper {
         // Time skip to accrue rewards then return the latest reward states
         vm.warp(block.timestamp + secondsElapsed);
 
-        pirexRewards.harvest();
+        pirexRewards.accrueStrategy();
 
         // Take into account rewards from both pxGMX and pxGLP based on the vault's current shares
         uint256 pxGmxGlobalRewards = _calculateGlobalRewards(pxGmx);

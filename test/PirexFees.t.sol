@@ -634,7 +634,7 @@ contract PirexFeesTest is Helper {
 
         // Expected values for rewards will be counted at a separate logic
         // to prevent rounding error issue
-        (, ERC20[] memory rewardTokens, ) = pirexRewards.harvest();
+        (, ERC20[] memory rewardTokens, ) = pirexRewards.accrueStrategy();
 
         assertEq(address(weth), address(rewardTokens[0]));
         assertEq(address(pxGmx), address(rewardTokens[2]));

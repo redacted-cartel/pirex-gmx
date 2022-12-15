@@ -245,7 +245,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Harvest rewards
+        @notice Accrue strategy reward deltas
         @return _producerTokens  ERC20[]  Producer token contracts
         @return rewardTokens     ERC20[]  Reward token contracts
         @return rewardAmounts    ERC20[]  Reward token amounts
@@ -258,6 +258,8 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
             uint256[] memory rewardAmounts
         )
     {
+        // pxGMX and pxGLP rewards must be claimed all at once since PirexGmx is
+        // the sole token holder
         (_producerTokens, rewardTokens, rewardAmounts) = producer
             .claimRewards();
         uint256 pLen = _producerTokens.length;
@@ -284,7 +286,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         if (address(producerToken) == address(0)) revert ZeroAddress();
         if (user == address(0)) revert ZeroAddress();
 
-        harvest();
+        accrueStrategy();
         userAccrue(producerToken, user);
 
         ProducerToken storage p = producerTokens[producerToken];

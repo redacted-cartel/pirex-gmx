@@ -69,7 +69,7 @@ contract AutoPxGmxTest is Helper {
 
         pirexRewards.addStrategyForRewards(pxGmx, weth);
         pirexRewards.addStrategyForRewards(pxGmx, pxGmx);
-        pirexRewards.harvest();
+        pirexRewards.accrueStrategy();
 
         wethRewardState = pirexRewards.getRewardState(pxGmx, weth);
         pxGmxRewardState = pirexRewards.getRewardState(pxGmx, pxGmx);

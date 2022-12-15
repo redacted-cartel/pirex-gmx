@@ -1962,7 +1962,7 @@ contract PirexGmxTest is Test, Helper {
         // so we can test it separately
         vm.startPrank(newContract);
 
-        pirexRewards.harvest();
+        pirexRewards.accrueStrategy();
 
         REWARD_ROUTER_V2.acceptTransfer(oldContract);
 

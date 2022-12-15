@@ -478,10 +478,10 @@ contract PirexRewardsTest is Helper {
 
         vm.warp(block.timestamp + secondsElapsed);
 
-        // Add reward token and harvest rewards from Pirex contract
+        // Add reward token and accrue strategy rewards from PirexGmx contract
         pirexRewards.addStrategyForRewards(pxGmx, weth);
         pirexRewards.addStrategyForRewards(pxGlp, weth);
-        pirexRewards.harvest();
+        pirexRewards.accrueStrategy();
 
         for (uint256 i; i < testAccounts.length; ++i) {
             address recipient = forwardRewards
@@ -913,7 +913,7 @@ contract PirexRewardsTest is Helper {
         vm.warp(block.timestamp + 1 days);
 
         pirexRewards.setProducer(address(pirexGmx));
-        pirexRewards.harvest();
+        pirexRewards.accrueStrategy();
 
         uint256 oldMethodResult = pirexRewards.getRewardState(
             ERC20(address(pxGmx)),

@@ -47,10 +47,11 @@ contract PxERC20 is ERC20, AccessControl {
         virtual
         onlyRole(MINTER_ROLE)
     {
+        // Update delta for strategies prior to supply change
+        pirexRewards.accrueStrategy();
+
         _mint(to, amount);
 
-        // Accrue global and user rewards and store post-mint supply for future accrual
-        pirexRewards.accrueStrategy();
         pirexRewards.userAccrue(this, to);
     }
 
@@ -64,10 +65,10 @@ contract PxERC20 is ERC20, AccessControl {
         virtual
         onlyRole(BURNER_ROLE)
     {
+        pirexRewards.accrueStrategy();
+
         _burn(from, amount);
 
-        // Accrue global and user rewards and store post-burn supply for future accrual
-        pirexRewards.accrueStrategy();
         pirexRewards.userAccrue(this, from);
     }
 
@@ -92,7 +93,9 @@ contract PxERC20 is ERC20, AccessControl {
 
         emit Transfer(msg.sender, to, amount);
 
-        // Accrue rewards for sender, up to their current balance and kick off accrual for receiver
+        // Calculate delta for strategies so that users receive all rewards up to the transfers
+        pirexRewards.accrueStrategy();
+
         pirexRewards.userAccrue(this, msg.sender);
         pirexRewards.userAccrue(this, to);
 
@@ -126,6 +129,7 @@ contract PxERC20 is ERC20, AccessControl {
 
         emit Transfer(from, to, amount);
 
+        pirexRewards.accrueStrategy();
         pirexRewards.userAccrue(this, from);
         pirexRewards.userAccrue(this, to);
 
