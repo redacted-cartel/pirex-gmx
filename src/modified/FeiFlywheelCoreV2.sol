@@ -21,8 +21,13 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Update strategy type to bytes (abi-encoded producer and reward ERC20-type contracts)
         - Add AccrueStrategy event and emit in accrueStrategy
         - Return function if accruedRewards is zero in accrueStrategy
-        - Add leading underscore to accrueStrategy and accrueUser, and change visibility to internal
+        - Change visibility to internal and add a leading unscore (to denote internal method)
+            - accrueStrategy
+            - accrueUser
+            - claimRewards
         - Remove state parameter from accrueUser and read strategy index in function body
+        - Modify rewardsAccrued to support multiple rewards for each user
+        - Change claimRewards visibility to internal
 */
 contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
@@ -48,7 +53,7 @@ contract FeiFlywheelCoreV2 {
     mapping(bytes => mapping(address => uint224)) public userIndex;
 
     // The accrued but not yet transferred rewards for each user
-    mapping(address => uint256) public rewardsAccrued;
+    mapping(address => mapping(ERC20 => uint256)) public rewardsAccrued;
 
     /**
       @notice Emitted when a strategy has its rewards accrued
@@ -94,15 +99,16 @@ contract FeiFlywheelCoreV2 {
 
     /**
       @notice Claim rewards for a given user
-      @param  user  address  The user claiming rewards
+      @param  user    address  The user claiming rewards
+      @param  reward  ERC20    The reward token contract
     */
-    function claimRewards(address user) external {
+    function _claimRewards(address user, ERC20 reward) internal {
         if (user == address(0)) revert ZeroAddress();
 
-        uint256 accrued = rewardsAccrued[user];
+        uint256 accrued = rewardsAccrued[user][reward];
 
         if (accrued != 0) {
-            rewardsAccrued[user] = 0;
+            rewardsAccrued[user][reward] = 0;
 
             // TODO: Transfer rewards to user
 
@@ -212,13 +218,13 @@ contract FeiFlywheelCoreV2 {
         }
 
         uint224 deltaIndex = strategyIndex - supplierIndex;
-        (ERC20 producer, ) = _decodeStrategy(strategy);
+        (ERC20 producer, ERC20 reward) = _decodeStrategy(strategy);
 
         // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
         uint256 supplierDelta = (producer.balanceOf(user) * deltaIndex) / ONE;
-        uint256 supplierAccrued = rewardsAccrued[user] + supplierDelta;
+        uint256 supplierAccrued = rewardsAccrued[user][reward] + supplierDelta;
 
-        rewardsAccrued[user] = supplierAccrued;
+        rewardsAccrued[user][reward] = supplierAccrued;
 
         emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
 
