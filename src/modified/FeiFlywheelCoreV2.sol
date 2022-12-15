@@ -81,13 +81,7 @@ contract FeiFlywheelCoreV2 {
     */
     event AddStrategy(bytes indexed newStrategy);
 
-    error InvalidStrategy();
-    error ZeroAddress();
     error StrategyAlreadySet();
-
-    /*///////////////////////////////////////////////////////////////
-                          ADMIN LOGIC
-    //////////////////////////////////////////////////////////////*/
 
     /**
       @notice Initialize a new strategy
@@ -107,14 +101,6 @@ contract FeiFlywheelCoreV2 {
     }
 
     /**
-      @notice Get strategies
-      @return bytes[]  The list of strategies
-    */
-    function getAllStrategies() external view returns (bytes[] memory) {
-        return allStrategies;
-    }
-
-    /**
       @notice Decode strategy
       @param  strategy  bytes  The abi-encoded strategy to accrue a user's rewards on
       @return producer  ERC20  The producer contract (produces rewards)
@@ -127,10 +113,6 @@ contract FeiFlywheelCoreV2 {
     {
         return abi.decode(strategy, (ERC20, ERC20));
     }
-
-    /*///////////////////////////////////////////////////////////////
-                    INTERNAL ACCOUNTING LOGIC
-    //////////////////////////////////////////////////////////////*/
 
     /**
       @notice Sync strategy state with rewards
@@ -198,5 +180,13 @@ contract FeiFlywheelCoreV2 {
         emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
 
         return supplierAccrued;
+    }
+
+    /**
+      @notice Get strategies
+      @return bytes[]  The list of strategies
+    */
+    function getAllStrategies() external view returns (bytes[] memory) {
+        return allStrategies;
     }
 }
