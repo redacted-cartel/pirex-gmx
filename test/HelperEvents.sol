@@ -66,46 +66,23 @@ contract HelperEvents {
 
     // PirexRewards events
     event SetProducer(address producer);
+    event Claim(
+        ERC20 indexed rewardToken,
+        address indexed user,
+        uint256 amount
+    );
     event SetRewardRecipient(
         address indexed user,
-        ERC20 indexed producerToken,
         ERC20 indexed rewardToken,
-        address recipient
+        address indexed recipient
     );
-    event UnsetRewardRecipient(
+    event UnsetRewardRecipient(address indexed user, ERC20 indexed rewardToken);
+    event AccrueStrategy(bytes indexed strategy, uint256 accruedRewards);
+    event AccrueRewards(
+        bytes indexed strategy,
         address indexed user,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
-    );
-    event GlobalAccrue(
-        ERC20 indexed producerToken,
-        uint256 lastUpdate,
-        uint256 lastSupply,
-        uint256 rewards
-    );
-    event UserAccrue(
-        ERC20 indexed producerToken,
-        address indexed user,
-        uint256 lastUpdate,
-        uint256 lastBalance,
-        uint256 rewards
-    );
-    event Harvest(
-        ERC20[] producerTokens,
-        ERC20[] rewardTokens,
-        uint256[] rewardAmounts
-    );
-    event Claim(ERC20 indexed producerToken, address indexed user);
-    event SetRewardRecipientPrivileged(
-        address indexed lpContract,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken,
-        address recipient
-    );
-    event UnsetRewardRecipientPrivileged(
-        address indexed lpContract,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
+        uint256 rewardsDelta,
+        uint256 rewardsIndex
     );
     event AddStrategy(bytes indexed newStrategy);
 

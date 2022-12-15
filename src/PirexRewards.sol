@@ -17,73 +17,30 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
-    struct ProducerToken {
-        ERC20[] rewardTokens;
-        GlobalState globalState;
-        mapping(address => UserState) userStates;
-        mapping(ERC20 => uint256) rewardStates;
-        mapping(address => mapping(ERC20 => address)) rewardRecipients;
-    }
-
-    // Pirex contract which produces rewards
+    // Core reward-producing Pirex contract
     IProducer public producer;
 
-    // Producer tokens mapped to their data
-    mapping(ERC20 => ProducerToken) public producerTokens;
-
-    // Producer tokens mapped to its list of strategies
+    // Producer token => strategies
     mapping(ERC20 => bytes[]) public strategies;
 
+    // User address => reward token => reward recipient address
+    mapping(address => mapping(ERC20 => address)) public rewardRecipients;
+
     event SetProducer(address producer);
-    event SetRewardRecipient(
-        address indexed user,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken,
-        address recipient
-    );
-    event UnsetRewardRecipient(
-        address indexed user,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
-    );
-    event GlobalAccrue(
-        ERC20 indexed producerToken,
-        uint256 lastUpdate,
-        uint256 lastSupply,
-        uint256 rewards
-    );
-    event UserAccrue(
-        ERC20 indexed producerToken,
-        address indexed user,
-        uint256 lastUpdate,
-        uint256 lastBalance,
-        uint256 rewards
-    );
-    event Harvest(
-        ERC20[] producerTokens,
-        ERC20[] rewardTokens,
-        uint256[] rewardAmounts
-    );
     event Claim(
         ERC20 indexed rewardToken,
         address indexed user,
         uint256 amount
     );
-    event SetRewardRecipientPrivileged(
-        address indexed lpContract,
-        ERC20 indexed producerToken,
+    event SetRewardRecipient(
+        address indexed user,
         ERC20 indexed rewardToken,
-        address recipient
+        address indexed recipient
     );
-    event UnsetRewardRecipientPrivileged(
-        address indexed lpContract,
-        ERC20 indexed producerToken,
-        ERC20 indexed rewardToken
-    );
+    event UnsetRewardRecipient(address indexed user, ERC20 indexed rewardToken);
 
-    error NotContract();
-    error TokenAlreadyAdded();
     error EmptyArray();
+    error NotContract();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -99,51 +56,6 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         producer = IProducer(_producer);
 
         emit SetProducer(_producer);
-    }
-
-    /**
-        @notice Set reward recipient for a reward token
-        @param  producerToken  ERC20    Producer token contract
-        @param  rewardToken    ERC20    Reward token contract
-        @param  recipient      address  Rewards recipient
-    */
-    function setRewardRecipient(
-        ERC20 producerToken,
-        ERC20 rewardToken,
-        address recipient
-    ) external {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
-        if (address(rewardToken) == address(0)) revert ZeroAddress();
-        if (recipient == address(0)) revert ZeroAddress();
-
-        producerTokens[producerToken].rewardRecipients[msg.sender][
-            rewardToken
-        ] = recipient;
-
-        emit SetRewardRecipient(
-            msg.sender,
-            producerToken,
-            rewardToken,
-            recipient
-        );
-    }
-
-    /**
-        @notice Unset reward recipient for a reward token
-        @param  producerToken  ERC20  Producer token contract
-        @param  rewardToken    ERC20  Reward token contract
-    */
-    function unsetRewardRecipient(ERC20 producerToken, ERC20 rewardToken)
-        external
-    {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
-        if (address(rewardToken) == address(0)) revert ZeroAddress();
-
-        delete producerTokens[producerToken].rewardRecipients[msg.sender][
-            rewardToken
-        ];
-
-        emit UnsetRewardRecipient(msg.sender, producerToken, rewardToken);
     }
 
     /**
@@ -167,39 +79,36 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
 
     /**
         @notice Get the reward recipient for a user by producer and reward token
-        @param  user           address  User
-        @param  producerToken  ERC20    Producer token contract
-        @param  rewardToken    ERC20    Reward token contract
-        @return                address  Reward recipient
+        @param  user         address  User
+        @param  rewardToken  ERC20    Reward token contract
+        @return              address  Reward recipient
     */
-    function getRewardRecipient(
-        address user,
-        ERC20 producerToken,
-        ERC20 rewardToken
-    ) external view returns (address) {
-        return
-            producerTokens[producerToken].rewardRecipients[user][rewardToken];
+    function getRewardRecipient(address user, ERC20 rewardToken)
+        external
+        view
+        returns (address)
+    {
+        return rewardRecipients[user][rewardToken];
     }
 
     /**
         @notice Accrue strategy rewards
-        @return _producerTokens  ERC20[]  Producer token contracts
+        @return producerTokens  ERC20[]  Producer token contracts
         @return rewardTokens     ERC20[]  Reward token contracts
         @return rewardAmounts    ERC20[]  Reward token amounts
     */
     function accrueStrategy()
         public
         returns (
-            ERC20[] memory _producerTokens,
+            ERC20[] memory producerTokens,
             ERC20[] memory rewardTokens,
             uint256[] memory rewardAmounts
         )
     {
         // pxGMX and pxGLP rewards must be claimed all at once since PirexGmx is
         // the sole token holder
-        (_producerTokens, rewardTokens, rewardAmounts) = producer
-            .claimRewards();
-        uint256 pLen = _producerTokens.length;
+        (producerTokens, rewardTokens, rewardAmounts) = producer.claimRewards();
+        uint256 pLen = producerTokens.length;
 
         // Iterate over the producer tokens and accrue strategy
         for (uint256 i; i < pLen; ++i) {
@@ -207,7 +116,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
 
             if (r != 0) {
                 _accrueStrategy(
-                    abi.encode(_producerTokens[i], rewardTokens[i]),
+                    abi.encode(producerTokens[i], rewardTokens[i]),
                     r
                 );
             }
@@ -259,6 +168,32 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         }
     }
 
+    /**
+        @notice Set reward recipient for a reward token
+        @param  rewardToken  ERC20    Reward token contract
+        @param  recipient    address  Rewards recipient
+    */
+    function setRewardRecipient(ERC20 rewardToken, address recipient) external {
+        if (address(rewardToken) == address(0)) revert ZeroAddress();
+        if (recipient == address(0)) revert ZeroAddress();
+
+        rewardRecipients[msg.sender][rewardToken] = recipient;
+
+        emit SetRewardRecipient(msg.sender, rewardToken, recipient);
+    }
+
+    /**
+        @notice Unset reward recipient for a reward token
+        @param  rewardToken  ERC20  Reward token contract
+    */
+    function unsetRewardRecipient(ERC20 rewardToken) external {
+        if (address(rewardToken) == address(0)) revert ZeroAddress();
+
+        delete rewardRecipients[msg.sender][rewardToken];
+
+        emit UnsetRewardRecipient(msg.sender, rewardToken);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     ⚠️ NOTABLE PRIVILEGED METHODS ⚠️
     //////////////////////////////////////////////////////////////*/
@@ -267,57 +202,38 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         @notice Privileged method for setting the reward recipient of a contract
         @notice This should ONLY be used to forward rewards for Pirex-GMX LP contracts
         @notice In production, we will have a 2nd multisig which reduces risk of abuse
-        @param  lpContract     address  Pirex-GMX LP contract
-        @param  producerToken  ERC20    Producer token contract
-        @param  rewardToken    ERC20    Reward token contract
-        @param  recipient      address  Rewards recipient
+        @param  lpContract   address  Pirex-GMX LP contract
+        @param  rewardToken  ERC20    Reward token contract
+        @param  recipient    address  Rewards recipient
     */
     function setRewardRecipientPrivileged(
         address lpContract,
-        ERC20 producerToken,
         ERC20 rewardToken,
         address recipient
     ) external onlyOwner {
         if (lpContract.code.length == 0) revert NotContract();
-        if (address(producerToken) == address(0)) revert ZeroAddress();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
 
-        producerTokens[producerToken].rewardRecipients[lpContract][
-            rewardToken
-        ] = recipient;
+        rewardRecipients[lpContract][rewardToken] = recipient;
 
-        emit SetRewardRecipientPrivileged(
-            lpContract,
-            producerToken,
-            rewardToken,
-            recipient
-        );
+        emit SetRewardRecipient(lpContract, rewardToken, recipient);
     }
 
     /**
         @notice Privileged method for unsetting the reward recipient of a contract
-        @param  lpContract     address  Pirex-GMX LP contract
-        @param  producerToken  ERC20    Producer token contract
-        @param  rewardToken    ERC20    Reward token contract
+        @param  lpContract   address  Pirex-GMX LP contract
+        @param  rewardToken  ERC20    Reward token contract
     */
     function unsetRewardRecipientPrivileged(
         address lpContract,
-        ERC20 producerToken,
         ERC20 rewardToken
     ) external onlyOwner {
         if (lpContract.code.length == 0) revert NotContract();
-        if (address(producerToken) == address(0)) revert ZeroAddress();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        delete producerTokens[producerToken].rewardRecipients[lpContract][
-            rewardToken
-        ];
+        delete rewardRecipients[lpContract][rewardToken];
 
-        emit UnsetRewardRecipientPrivileged(
-            lpContract,
-            producerToken,
-            rewardToken
-        );
+        emit UnsetRewardRecipient(lpContract, rewardToken);
     }
 }
