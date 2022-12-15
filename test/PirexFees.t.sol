@@ -45,27 +45,7 @@ contract PirexFeesTest is Helper {
     }
 
     /**
-        @notice Calculate the expected claimable user rewards
-        @param  producer     ERC20  Producer token
-        @param  rewardToken  ERC20  Reward token
-        @param  user         address  User address
-        @return              uint256  Expected fee claimable amount
-     */
-    function _calculateClaimableUserReward(
-        ERC20 producer,
-        ERC20 rewardToken,
-        address user
-    ) internal view returns (uint256) {
-        // Sum of reward amounts that the user/recipient is entitled to
-        return
-            (pirexRewards.getRewardState(producer, rewardToken) *
-                _calculateUserRewards(producer, user)) /
-            _calculateGlobalRewards(producer);
-    }
-
-    /**
         @notice Claim and aggregate total expected fees data
-        @param  feeNumerator                                uint256  Fee numerator
         @return totalExpectedDistributionWeth               uint256  Total expected overall fee for WETH
         @return totalExpectedTreasuryDistributionWeth       uint256  Total expected treasury fee for WETH
         @return totalExpectedContributorsDistributionWeth   uint256  Total expected contributors fee for WETH
@@ -73,7 +53,7 @@ contract PirexFeesTest is Helper {
         @return totalExpectedTreasuryDistributionPxGmx      uint256  Total expected treasury fee for PxGMX
         @return totalExpectedContributorsDistributionPxGmx  uint256  Total expected contributors fee for PxGMX
      */
-    function _claimAndAggregateExpectedFees(uint256 feeNumerator)
+    function _claimAndAggregateExpectedFees()
         internal
         returns (
             uint256 totalExpectedDistributionWeth,
@@ -88,32 +68,23 @@ contract PirexFeesTest is Helper {
         for (uint256 i; i < testAccounts.length; ++i) {
             assertEq(0, weth.balanceOf(testAccounts[i]));
 
-            (
-                uint256 expectedDistributionWeth,
-                ,
-
-            ) = _calculateExpectedPirexFeeValues(
-                    _calculateClaimableUserReward(pxGmx, weth, testAccounts[i]),
-                    feeNumerator
-                );
-
-            (
-                uint256 expectedDistributionPxGmx,
-                ,
-
-            ) = _calculateExpectedPirexFeeValues(
-                    _calculateClaimableUserReward(
-                        pxGmx,
-                        pxGmx,
-                        testAccounts[i]
-                    ),
-                    feeNumerator
-                );
+            uint256 expectedDistributionWeth = pirexRewards.rewardsAccrued(
+                testAccounts[i],
+                weth
+            );
+            uint256 expectedDistributionPxGmx = pirexRewards.rewardsAccrued(
+                testAccounts[i],
+                pxGmx
+            );
 
             totalExpectedDistributionWeth += expectedDistributionWeth;
             totalExpectedDistributionPxGmx += expectedDistributionPxGmx;
 
-            pirexRewards.claim(pxGmx, testAccounts[i]);
+            ERC20[] memory rewardTokens = new ERC20[](2);
+            rewardTokens[0] = weth;
+            rewardTokens[1] = ERC20(pxGmx);
+
+            pirexRewards.claim(rewardTokens, testAccounts[i]);
 
             assertGt(weth.balanceOf(testAccounts[i]), 0);
         }
@@ -343,10 +314,7 @@ contract PirexFeesTest is Helper {
                 uint256 expectedDistribution,
                 uint256 expectedTreasuryDistribution,
                 uint256 expectedContributorsDistribution
-            ) = _calculateExpectedPirexFeeValues(
-                    deposited,
-                    depositFee
-                );
+            ) = _calculateExpectedPirexFeeValues(deposited, depositFee);
 
             totalExpectedTreasuryDistribution += expectedTreasuryDistribution;
             totalExpectedContributorsDistribution += expectedContributorsDistribution;
@@ -652,7 +620,7 @@ contract PirexFeesTest is Helper {
             uint256 totalExpectedDistributionPxGmx,
             uint256 totalExpectedTreasuryDistributionPxGmx,
             uint256 totalExpectedContributorsDistributionPxGmx
-        ) = _claimAndAggregateExpectedFees(rewardFee);
+        ) = _claimAndAggregateExpectedFees();
 
         assertEq(
             totalExpectedDistributionWeth,

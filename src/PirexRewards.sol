@@ -6,7 +6,6 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
-import {GlobalState, UserState} from "src/Common.sol";
 import {FeiFlywheelCoreV2} from "src/modified/FeiFlywheelCoreV2.sol";
 
 /**
@@ -39,6 +38,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     );
     event UnsetRewardRecipient(address indexed user, ERC20 indexed rewardToken);
 
+    error ZeroAddress();
     error EmptyArray();
     error NotContract();
 
@@ -75,20 +75,6 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         strategies[producerToken].push(strategy);
 
         _addStrategyForRewards(strategy);
-    }
-
-    /**
-        @notice Get the reward recipient for a user by producer and reward token
-        @param  user         address  User
-        @param  rewardToken  ERC20    Reward token contract
-        @return              address  Reward recipient
-    */
-    function getRewardRecipient(address user, ERC20 rewardToken)
-        external
-        view
-        returns (address)
-    {
-        return rewardRecipients[user][rewardToken];
     }
 
     /**
@@ -148,7 +134,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
       @param  rewardTokens  ERC20[]  Reward token contracts
       @param  user          address  The user claiming rewards
     */
-    function claim(ERC20[] calldata rewardTokens, address user) internal {
+    function claim(ERC20[] calldata rewardTokens, address user) external {
         uint256 rLen = rewardTokens.length;
 
         if (rLen == 0) revert EmptyArray();
@@ -166,6 +152,20 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
                 emit Claim(r, user, accrued);
             }
         }
+    }
+
+    /**
+        @notice Get the reward recipient for a user by producer and reward token
+        @param  user         address  User
+        @param  rewardToken  ERC20    Reward token contract
+        @return              address  Reward recipient
+    */
+    function getRewardRecipient(address user, ERC20 rewardToken)
+        external
+        view
+        returns (address)
+    {
+        return rewardRecipients[user][rewardToken];
     }
 
     /**

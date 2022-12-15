@@ -18,27 +18,23 @@ contract PirexRewardsTest is Helper {
 
     /**
         @notice Test tx reversion: caller is not authorized
-     */
+    */
     function testCannotSetProducerNotAuthorized() external {
-        assertEq(address(pirexGmx), address(pirexRewards.producer()));
+        address producer = address(this);
 
-        address _producer = address(this);
-
-        vm.prank(testAccounts[0]);
+        vm.prank(_getUnauthorizedCaller(pirexRewards.owner()));
         vm.expectRevert(NOT_OWNER_ERROR);
 
-        pirexRewards.setProducer(_producer);
+        pirexRewards.setProducer(producer);
     }
 
     /**
-        @notice Test tx reversion: _producer is zero address
+        @notice Test tx reversion: producer is zero address
      */
     function testCannotSetProducerZeroAddress() external {
-        assertEq(address(pirexGmx), address(pirexRewards.producer()));
-
         address invalidProducer = address(0);
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.setProducer(invalidProducer);
     }
@@ -47,20 +43,18 @@ contract PirexRewardsTest is Helper {
         @notice Test tx success: set producer
      */
     function testSetProducer() external {
-        assertEq(address(pirexGmx), address(pirexRewards.producer()));
-
         address producerBefore = address(pirexRewards.producer());
-        address _producer = address(this);
+        address producer = address(this);
 
-        assertTrue(producerBefore != _producer);
+        assertTrue(producerBefore != producer);
 
         vm.expectEmit(false, false, false, true, address(pirexRewards));
 
-        emit SetProducer(_producer);
+        emit SetProducer(producer);
 
-        pirexRewards.setProducer(_producer);
+        pirexRewards.setProducer(producer);
 
-        assertEq(_producer, address(pirexRewards.producer()));
+        assertEq(producer, address(pirexRewards.producer()));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -74,7 +68,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidRewardToken = ERC20(address(0));
         address recipient = address(this);
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipient(invalidRewardToken, recipient);
     }
@@ -86,7 +80,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address invalidRecipient = address(0);
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipient(rewardToken, invalidRecipient);
     }
@@ -127,7 +121,7 @@ contract PirexRewardsTest is Helper {
     function testCannotUnsetRewardRecipientRewardTokenZeroAddress() external {
         ERC20 invalidRewardToken = ERC20(address(0));
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipient(invalidRewardToken);
     }
@@ -138,11 +132,6 @@ contract PirexRewardsTest is Helper {
     function testUnsetRewardRecipient() external {
         ERC20 rewardToken = weth;
         address recipient = address(this);
-
-        assertEq(
-            address(0),
-            pirexRewards.getRewardRecipient(address(this), rewardToken)
-        );
 
         // Set reward recipient in order to unset
         pirexRewards.setRewardRecipient(rewardToken, recipient);
@@ -176,8 +165,8 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address recipient = address(this);
 
+        vm.prank(_getUnauthorizedCaller(pirexRewards.owner()));
         vm.expectRevert(NOT_OWNER_ERROR);
-        vm.prank(testAccounts[0]);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -192,7 +181,7 @@ contract PirexRewardsTest is Helper {
     function testCannotSetRewardRecipientPrivilegedLpContractNotContract()
         external
     {
-        // Any address w/o code works (even non-EOA, contract addresses not on Arbi)
+        // Any address w/o code works for this test
         address invalidLpContract = testAccounts[0];
 
         ERC20 rewardToken = weth;
@@ -228,7 +217,7 @@ contract PirexRewardsTest is Helper {
         ERC20 invalidRewardToken = ERC20(address(0));
         address recipient = address(this);
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -247,7 +236,7 @@ contract PirexRewardsTest is Helper {
         ERC20 rewardToken = weth;
         address invalidRecipient = address(0);
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.setRewardRecipientPrivileged(
             lpContract,
@@ -329,25 +318,6 @@ contract PirexRewardsTest is Helper {
     }
 
     /**
-        @notice Test tx reversion: producerToken is zero address
-     */
-    function testCannotUnsetRewardRecipientPrivilegedProducerTokenZeroAddress()
-        external
-    {
-        address lpContract = address(this);
-        ERC20 invalidProducerToken = ERC20(address(0));
-        ERC20 rewardToken = weth;
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.unsetRewardRecipientPrivileged(
-            lpContract,
-            invalidProducerToken,
-            rewardToken
-        );
-    }
-
-    /**
         @notice Test tx reversion: rewardToken is zero address
      */
     function testCannotUnsetRewardRecipientPrivilegedRewardTokenZeroAddress()
@@ -356,7 +326,7 @@ contract PirexRewardsTest is Helper {
         address lpContract = address(this);
         ERC20 invalidRewardToken = ERC20(address(0));
 
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
 
         pirexRewards.unsetRewardRecipientPrivileged(
             lpContract,
@@ -424,22 +394,10 @@ contract PirexRewardsTest is Helper {
 
         assertEq(proxyAddress, pirexGmx.pirexRewards());
 
-        // Simulate deposit to accrue rewards in which the reward data
-        // will be used later to test upgraded implementation
-        address receiver = address(this);
-        uint256 gmxAmount = 100e18;
+        pirexRewards.addStrategyForRewards(pxGmx, weth);
 
-        _depositGmx(gmxAmount, receiver);
-
-        vm.warp(block.timestamp + 1 days);
-
-        pirexRewards.setProducer(address(pirexGmx));
-        pirexRewards.accrueStrategy();
-
-        uint256 oldMethodResult = pirexRewards.getRewardState(
-            ERC20(address(pxGmx)),
-            weth
-        );
+        bytes[] memory oldStrategies = pirexRewards.getAllStrategies();
+        uint256 oldMethodResult = oldStrategies.length;
 
         assertGt(oldMethodResult, 0);
 
@@ -460,7 +418,7 @@ contract PirexRewardsTest is Helper {
         // and also assert the returned value
         assertEq(
             oldMethodResult * 2,
-            PirexRewardsMock(proxyAddress).getRewardStateMock(ERC20(pxGmx))
+            PirexRewardsMock(proxyAddress).getRewardStateMock()
         );
 
         // Confirm that the address of the proxy doesn't change, only the implementation
