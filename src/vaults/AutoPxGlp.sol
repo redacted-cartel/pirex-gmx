@@ -83,8 +83,8 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
         platform = _platform;
         rewardsModule = _rewardsModule;
 
-        // Approve the Uniswap V3 router to manage our base reward (inbound swap token)
-        gmxBaseReward.safeApprove(address(_platform), type(uint256).max);
+        // Approve the main Pirex contract to manage our base reward (inbound swap token)
+        gmxBaseReward.safeApprove(_platform, type(uint256).max);
     }
 
     /**
@@ -461,11 +461,11 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     function withdraw(
         uint256 assets,
         address receiver,
-        address owner
+        address account
     ) public override returns (uint256 shares) {
         compound(1, 1, true);
 
-        shares = PirexERC4626.withdraw(assets, receiver, owner);
+        shares = PirexERC4626.withdraw(assets, receiver, account);
     }
 
     /**
@@ -474,11 +474,11 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
     function redeem(
         uint256 shares,
         address receiver,
-        address owner
+        address account
     ) public override returns (uint256 assets) {
         compound(1, 1, true);
 
-        assets = PirexERC4626.redeem(shares, receiver, owner);
+        assets = PirexERC4626.redeem(shares, receiver, account);
     }
 
     /**
@@ -507,28 +507,28 @@ contract AutoPxGlp is PirexERC4626, PxGmxReward, ReentrancyGuard {
 
     /**
         @notice Update pxGMX reward accrual after withdrawal
-        @param  owner  address  Owner of the vault shares
+        @param  account  address  Account of the vault shares
      */
     function afterWithdraw(
-        address owner,
+        address account,
         uint256,
         uint256
     ) internal override {
         _globalAccrue();
-        _userAccrue(owner);
+        _userAccrue(account);
     }
 
     /**
         @notice Update pxGMX reward accrual for both sender and receiver after transfer
-        @param  owner     address  Owner of the vault shares
+        @param  account   address  Account of the vault shares
         @param  receiver  address  Receiver of the vault shares
      */
     function afterTransfer(
-        address owner,
+        address account,
         address receiver,
         uint256
     ) internal override {
-        _userAccrue(owner);
+        _userAccrue(account);
         _userAccrue(receiver);
     }
 }

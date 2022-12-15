@@ -244,12 +244,11 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         uint256,
         uint256
     ) internal override {
-        compound(poolFee, 1, 0, true);
+        compound(1, 0, true);
     }
 
     /**
         @notice Compound pxGMX rewards
-        @param  fee                    uint24   Uniswap pool tier fee
         @param  amountOutMinimum       uint256  Outbound token swap amount
         @param  sqrtPriceLimitX96      uint160  Swap price impact limit (optional)
         @param  optOutIncentive        bool     Whether to opt out of the incentive
@@ -260,7 +259,6 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         @return incentive              uint256  Compound incentive
      */
     function compound(
-        uint24 fee,
         uint256 amountOutMinimum,
         uint160 sqrtPriceLimitX96,
         bool optOutIncentive
@@ -274,7 +272,6 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
             uint256 incentive
         )
     {
-        if (fee == 0) revert InvalidParam();
         if (amountOutMinimum == 0) revert InvalidParam();
 
         uint256 assetsBeforeClaim = asset.balanceOf(address(this));
@@ -289,7 +286,7 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
                 IV3SwapRouter.ExactInputSingleParams({
                     tokenIn: address(gmxBaseReward),
                     tokenOut: address(gmx),
-                    fee: fee,
+                    fee: poolFee,
                     recipient: address(this),
                     amountIn: gmxBaseRewardAmountIn,
                     amountOutMinimum: amountOutMinimum,
@@ -305,11 +302,9 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
         }
 
         // Only distribute fees if the amount of vault assets increased
-        if ((totalAssets() - assetsBeforeClaim) != 0) {
-            totalFee =
-                ((asset.balanceOf(address(this)) - assetsBeforeClaim) *
-                    platformFee) /
-                FEE_DENOMINATOR;
+        uint256 newAssets = totalAssets() - assetsBeforeClaim;
+        if (newAssets != 0) {
+            totalFee = (newAssets * platformFee) / FEE_DENOMINATOR;
             incentive = optOutIncentive
                 ? 0
                 : (totalFee * compoundIncentive) / FEE_DENOMINATOR;
@@ -321,7 +316,7 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
 
         emit Compounded(
             msg.sender,
-            fee,
+            poolFee,
             amountOutMinimum,
             sqrtPriceLimitX96,
             gmxBaseRewardAmountIn,
@@ -335,23 +330,23 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     function withdraw(
         uint256 assets,
         address receiver,
-        address owner
+        address account
     ) public override returns (uint256 shares) {
         // Compound rewards and ensure they are properly accounted for prior to withdrawal calculation
-        compound(poolFee, 1, 0, true);
+        compound(1, 0, true);
 
         shares = previewWithdraw(assets); // No need to check for rounding error, previewWithdraw rounds up.
 
-        if (msg.sender != owner) {
-            uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
+        if (msg.sender != account) {
+            uint256 allowed = allowance[account][msg.sender]; // Saves gas for limited approvals.
 
             if (allowed != type(uint256).max)
-                allowance[owner][msg.sender] = allowed - shares;
+                allowance[account][msg.sender] = allowed - shares;
         }
 
-        _burn(owner, shares);
+        _burn(account, shares);
 
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+        emit Withdraw(msg.sender, receiver, account, assets, shares);
 
         asset.safeTransfer(receiver, assets);
     }
@@ -359,24 +354,24 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
     function redeem(
         uint256 shares,
         address receiver,
-        address owner
+        address account
     ) public override returns (uint256 assets) {
         // Compound rewards and ensure they are properly accounted for prior to redemption calculation
-        compound(poolFee, 1, 0, true);
+        compound(1, 0, true);
 
-        if (msg.sender != owner) {
-            uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
+        if (msg.sender != account) {
+            uint256 allowed = allowance[account][msg.sender]; // Saves gas for limited approvals.
 
             if (allowed != type(uint256).max)
-                allowance[owner][msg.sender] = allowed - shares;
+                allowance[account][msg.sender] = allowed - shares;
         }
 
         // Check for rounding error since we round down in previewRedeem.
         require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
-        _burn(owner, shares);
+        _burn(account, shares);
 
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+        emit Withdraw(msg.sender, receiver, account, assets, shares);
 
         asset.safeTransfer(receiver, assets);
     }

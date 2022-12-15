@@ -85,7 +85,7 @@ Hard Mode (Coming Soon): Stake your pxGMX or pxGLP and mint tokens representing 
 
 - Accepts GLP, GLP constituent assets, and pxGLP deposits, and issues share tokens (apxGLP) against them
 - Compounds pxGLP WETH rewards into more pxGLP, and tracks esGMX-backed pxGMX rewards earned by vault users
-- Provides a series of permissioned methods that enables the Pirex multisig to configure fees, incentives, and Uniswap V3 pool fee
+- Provides a series of permissioned methods that enables the Pirex multisig to configure fees and incentives
 
 ### Contract Diagram
 
