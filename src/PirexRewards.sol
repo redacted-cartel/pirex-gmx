@@ -31,6 +31,9 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     // Producer tokens mapped to their data
     mapping(ERC20 => ProducerToken) public producerTokens;
 
+    // Producer tokens mapped to its list of strategies
+    mapping(ERC20 => bytes[]) public strategies;
+
     event SetProducer(address producer);
     event SetRewardRecipient(
         address indexed user,
@@ -150,7 +153,11 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         if (address(producerToken) == address(0)) revert ZeroAddress();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        _addStrategyForRewards(abi.encode(producerToken, rewardToken));
+        bytes memory strategy = abi.encode(producerToken, rewardToken);
+
+        strategies[producerToken].push(strategy);
+
+        _addStrategyForRewards(strategy);
     }
 
     /**
