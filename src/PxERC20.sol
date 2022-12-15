@@ -50,9 +50,10 @@ contract PxERC20 is ERC20, AccessControl {
         // Update delta for strategies prior to supply change
         pirexRewards.accrueStrategy();
 
-        _mint(to, amount);
+        // Update delta for strategies prior to balance change
+        pirexRewards.accrueUser(this, to);
 
-        pirexRewards.userAccrue(this, to);
+        _mint(to, amount);
     }
 
     /**
@@ -66,10 +67,9 @@ contract PxERC20 is ERC20, AccessControl {
         onlyRole(BURNER_ROLE)
     {
         pirexRewards.accrueStrategy();
+        pirexRewards.accrueUser(this, from);
 
         _burn(from, amount);
-
-        pirexRewards.userAccrue(this, from);
     }
 
     /**
@@ -83,6 +83,12 @@ contract PxERC20 is ERC20, AccessControl {
         override
         returns (bool)
     {
+        // Update delta for strategies so that users receive all rewards up to the transfers
+        // Accrue users prior to balance changes to ensure that they receive their entitled rewards
+        pirexRewards.accrueStrategy();
+        pirexRewards.accrueUser(this, msg.sender);
+        pirexRewards.accrueUser(this, to);
+
         balanceOf[msg.sender] -= amount;
 
         // Cannot overflow because the sum of all user
@@ -92,12 +98,6 @@ contract PxERC20 is ERC20, AccessControl {
         }
 
         emit Transfer(msg.sender, to, amount);
-
-        // Calculate delta for strategies so that users receive all rewards up to the transfers
-        pirexRewards.accrueStrategy();
-
-        pirexRewards.userAccrue(this, msg.sender);
-        pirexRewards.userAccrue(this, to);
 
         return true;
     }
@@ -119,6 +119,10 @@ contract PxERC20 is ERC20, AccessControl {
         if (allowed != type(uint256).max)
             allowance[from][msg.sender] = allowed - amount;
 
+        pirexRewards.accrueStrategy();
+        pirexRewards.accrueUser(this, from);
+        pirexRewards.accrueUser(this, to);
+
         balanceOf[from] -= amount;
 
         // Cannot overflow because the sum of all user
@@ -128,10 +132,6 @@ contract PxERC20 is ERC20, AccessControl {
         }
 
         emit Transfer(from, to, amount);
-
-        pirexRewards.accrueStrategy();
-        pirexRewards.userAccrue(this, from);
-        pirexRewards.userAccrue(this, to);
 
         return true;
     }

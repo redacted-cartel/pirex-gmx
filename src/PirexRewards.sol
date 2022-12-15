@@ -228,31 +228,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Update user rewards accrual state
-        @param  producerToken  ERC20    Rewards-producing token
-        @param  user           address  User address
-    */
-    function userAccrue(ERC20 producerToken, address user) public {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
-        if (user == address(0)) revert ZeroAddress();
-
-        UserState storage u = producerTokens[producerToken].userStates[user];
-        uint256 balance = producerToken.balanceOf(user);
-
-        // Calculate the amount of rewards accrued by the user up to this call
-        uint256 rewards = u.rewards +
-            u.lastBalance *
-            (block.timestamp - u.lastUpdate);
-
-        u.lastUpdate = block.timestamp.safeCastTo32();
-        u.lastBalance = balance.safeCastTo224();
-        u.rewards = rewards;
-
-        emit UserAccrue(producerToken, user, block.timestamp, balance, rewards);
-    }
-
-    /**
-        @notice Accrue strategy reward deltas
+        @notice Accrue strategy rewards
         @return _producerTokens  ERC20[]  Producer token contracts
         @return rewardTokens     ERC20[]  Reward token contracts
         @return rewardAmounts    ERC20[]  Reward token amounts
@@ -285,6 +261,23 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
+        @notice Accrue user rewards for each strategy (producer and reward token pair)
+        @param  producerToken  ERC20      Producer token contract
+        @param  user           address    User
+        @return userAccrued    uint256[]  Accrued user rewards
+    */
+    function accrueUser(ERC20 producerToken, address user) public returns (uint256[] memory userAccrued) {
+        bytes[] memory s = strategies[producerToken];
+        uint256 sLen = s.length;
+        userAccrued = new uint256[](sLen);
+
+        // Accrue user rewards for each strategy (producer and reward token pair)
+        for (uint256 i; i < sLen; ++i) {
+            userAccrued[i] = _accrueUser(s[i], user);
+        }
+    }
+
+    /**
         @notice Claim rewards
         @param  producerToken  ERC20    Producer token contract
         @param  user           address  User
@@ -294,7 +287,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         if (user == address(0)) revert ZeroAddress();
 
         accrueStrategy();
-        userAccrue(producerToken, user);
+        accrueUser(producerToken, user);
 
         ProducerToken storage p = producerTokens[producerToken];
         uint256 globalRewards = p.globalState.rewards;

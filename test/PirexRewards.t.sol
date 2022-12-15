@@ -84,112 +84,6 @@ contract PirexRewardsTest is Helper {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        userAccrue TESTS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-        @notice Test tx reversion: producerToken is zero address
-     */
-    function testCannotUserAccrueProducerTokenZeroAddress() external {
-        ERC20 invalidProducerToken = ERC20(address(0));
-        address user = address(this);
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.userAccrue(invalidProducerToken, user);
-    }
-
-    /**
-        @notice Test tx reversion: user is zero address
-     */
-    function testCannotUserAccrueUserZeroAddress() external {
-        ERC20 producerToken = pxGlp;
-        address invalidUser = address(0);
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.userAccrue(producerToken, invalidUser);
-    }
-
-    /**
-        @notice Test tx success: user rewards accrual
-        @param  secondsElapsed    uint32  Seconds to forward timestamp (equivalent to total rewards accrued)
-        @param  multiplier        uint8   Multiplied with fixed token amounts for randomness
-        @param  useETH            bool    Whether or not to use ETH as the source asset for minting GLP
-        @param  hasCooldown       bool    Whether or not to enable GLP cooldown duration
-        @param  testAccountIndex  uint8   Index of test account
-        @param  useGmx            bool    Whether to use pxGMX
-     */
-    function testUserAccrue(
-        uint32 secondsElapsed,
-        uint8 multiplier,
-        bool useETH,
-        bool hasCooldown,
-        uint8 testAccountIndex,
-        bool useGmx
-    ) external {
-        vm.assume(secondsElapsed > 10);
-        vm.assume(secondsElapsed < 365 days);
-        vm.assume(multiplier != 0);
-        vm.assume(multiplier < 10);
-        vm.assume(testAccountIndex < 3);
-
-        ERC20 producerToken = useGmx
-            ? ERC20(address(pxGmx))
-            : ERC20(address(pxGlp));
-
-        _depositForTestAccounts(useGmx, multiplier, useETH, hasCooldown);
-
-        address user = testAccounts[testAccountIndex];
-        uint256 pxBalance = producerToken.balanceOf(user);
-        (
-            uint256 lastUpdateBefore,
-            uint256 lastBalanceBefore,
-            uint256 rewardsBefore
-        ) = pirexRewards.getUserState(producerToken, user);
-        uint256 warpTimestamp = block.timestamp + secondsElapsed;
-
-        // GMX minting warps timestamp (timelock) so we will test for a non-zero value
-        assertTrue(lastUpdateBefore != 0);
-
-        // The recently minted balance amount should be what is stored in state
-        assertEq(lastBalanceBefore, pxBalance);
-
-        // User should not accrue rewards until time has passed
-        assertEq(0, rewardsBefore);
-
-        vm.warp(warpTimestamp);
-
-        uint256 expectedUserRewards = _calculateUserRewards(
-            producerToken,
-            user
-        );
-
-        vm.expectEmit(true, true, false, true, address(pirexRewards));
-
-        emit UserAccrue(
-            producerToken,
-            user,
-            block.timestamp,
-            pxBalance,
-            expectedUserRewards
-        );
-
-        pirexRewards.userAccrue(producerToken, user);
-
-        (
-            uint256 lastUpdateAfter,
-            uint256 lastBalanceAfter,
-            uint256 rewardsAfter
-        ) = pirexRewards.getUserState(producerToken, user);
-
-        assertEq(warpTimestamp, lastUpdateAfter);
-        assertEq(pxBalance, lastBalanceAfter);
-        assertEq(expectedUserRewards, rewardsAfter);
-        assertTrue(rewardsAfter != 0);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         setRewardRecipient TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -355,71 +249,6 @@ contract PirexRewardsTest is Helper {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        addRewardToken TESTS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-        @notice Test tx reversion: caller is not authorized
-     */
-    function testCannotAddStrategyForRewardsNotAuthorized() external {
-        ERC20 producerToken = pxGlp;
-        ERC20 rewardToken = weth;
-
-        vm.expectRevert(NOT_OWNER_ERROR);
-        vm.prank(testAccounts[0]);
-
-        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
-    }
-
-    /**
-        @notice Test tx reversion: producerToken is zero address
-     */
-    function testCannotAddStrategyForRewardsProducerTokenZeroAddress()
-        external
-    {
-        ERC20 invalidProducerToken = ERC20(address(0));
-        ERC20 rewardToken = ERC20(address(0));
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.addStrategyForRewards(invalidProducerToken, rewardToken);
-    }
-
-    /**
-        @notice Test tx reversion: rewardToken is zero address
-     */
-    function testCannotAddStrategyForRewardsRewardTokenZeroAddress() external {
-        ERC20 producerToken = pxGlp;
-        ERC20 invalidRewardToken = ERC20(address(0));
-
-        vm.expectRevert(FeiFlywheelCoreV2.ZeroAddress.selector);
-
-        pirexRewards.addStrategyForRewards(producerToken, invalidRewardToken);
-    }
-
-    /**
-        @notice Test tx success: add a strategy
-     */
-    function testAddStrategyForRewards() external {
-        ERC20 producerToken = pxGlp;
-        ERC20 rewardToken = weth;
-        bytes memory strategy = abi.encode(producerToken, rewardToken);
-
-        vm.expectEmit(true, false, false, true, address(pirexRewards));
-
-        emit AddStrategy(strategy);
-
-        pirexRewards.addStrategyForRewards(producerToken, rewardToken);
-
-        bytes[] memory strategies = pirexRewards.getAllStrategies();
-        (uint224 index, uint32 lastUpdatedTimestamp) = pirexRewards.strategyState(strategy);
-
-        assertEq(strategy, strategies[strategies.length - 1]);
-        assertEq(index, pirexRewards.ONE());
-        assertEq(block.timestamp, lastUpdatedTimestamp);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                             claim TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -499,8 +328,8 @@ contract PirexRewardsTest is Helper {
                 assertEq(0, weth.balanceOf(testAccounts[i]));
             }
 
-            pirexRewards.userAccrue(pxGmx, testAccounts[i]);
-            pirexRewards.userAccrue(pxGlp, testAccounts[i]);
+            pirexRewards.accrueUser(pxGmx, testAccounts[i]);
+            pirexRewards.accrueUser(pxGlp, testAccounts[i]);
 
             (, , uint256 globalRewardsBeforeClaimPxGmx) = _getGlobalState(
                 pxGmx

@@ -21,7 +21,8 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Update strategy type to bytes (abi-encoded producer and reward ERC20-type contracts)
         - Add AccrueStrategy event and emit in accrueStrategy
         - Return function if accruedRewards is zero in accrueStrategy
-        - Add leading underscore to accrueStrategy and change visibility to internal
+        - Add leading underscore to accrueStrategy and accrueUser, and change visibility to internal
+        - Remove state parameter from accrueUser and read strategy index in function body
 */
 contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
@@ -191,16 +192,14 @@ contract FeiFlywheelCoreV2 {
     /**
       @notice Sync user state with strategy
       @param  strategy  bytes         The strategy to accrue a user's rewards on
-      @param  user      address       The user to
-      @param  state     RewardsState  The strategy rewards state
+      @param  user      address       The user to accrue rewards for
     */
-    function accrueUser(
-        bytes memory strategy,
-        address user,
-        RewardsState memory state
-    ) private returns (uint256) {
+    function _accrueUser(bytes memory strategy, address user)
+        internal
+        returns (uint256)
+    {
         // Load indices
-        uint224 strategyIndex = state.index;
+        uint224 strategyIndex = strategyState[strategy].index;
         uint224 supplierIndex = userIndex[strategy][user];
 
         // Sync user index to global
