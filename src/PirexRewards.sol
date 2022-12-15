@@ -64,7 +64,11 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         ERC20[] rewardTokens,
         uint256[] rewardAmounts
     );
-    event Claim(ERC20 indexed producerToken, address indexed user);
+    event Claim(
+        ERC20 indexed rewardToken,
+        address indexed user,
+        uint256 amount
+    );
     event SetRewardRecipientPrivileged(
         address indexed lpContract,
         ERC20 indexed producerToken,
@@ -79,6 +83,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
 
     error NotContract();
     error TokenAlreadyAdded();
+    error EmptyArray();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -161,57 +166,6 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Getter for a producer token's UserState struct member values
-        @param  producerToken  ERC20    Producer token contract
-        @param  user           address  User
-        @return lastUpdate     uint256  Last update
-        @return lastBalance    uint256  Last balance
-        @return rewards        uint256  Rewards
-    */
-    function getUserState(ERC20 producerToken, address user)
-        external
-        view
-        returns (
-            uint256 lastUpdate,
-            uint256 lastBalance,
-            uint256 rewards
-        )
-    {
-        UserState memory userState = producerTokens[producerToken].userStates[
-            user
-        ];
-
-        return (userState.lastUpdate, userState.lastBalance, userState.rewards);
-    }
-
-    /**
-        @notice Getter for a producer token's accrued amount for a reward token
-        @param  producerToken  ERC20    Producer token contract
-        @param  rewardToken    ERC20    Reward token contract
-        @return                uint256  Reward state
-    */
-    function getRewardState(ERC20 producerToken, ERC20 rewardToken)
-        external
-        view
-        returns (uint256)
-    {
-        return producerTokens[producerToken].rewardStates[rewardToken];
-    }
-
-    /**
-        @notice Getter for a producer token's reward tokens
-        @param  producerToken  ERC20    Producer token contract
-        @return                ERC20[]  Reward token contracts
-    */
-    function getRewardTokens(ERC20 producerToken)
-        external
-        view
-        returns (ERC20[] memory)
-    {
-        return producerTokens[producerToken].rewardTokens;
-    }
-
-    /**
         @notice Get the reward recipient for a user by producer and reward token
         @param  user           address  User
         @param  producerToken  ERC20    Producer token contract
@@ -266,7 +220,10 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         @param  user           address    User
         @return userAccrued    uint256[]  Accrued user rewards
     */
-    function accrueUser(ERC20 producerToken, address user) public returns (uint256[] memory userAccrued) {
+    function accrueUser(ERC20 producerToken, address user)
+        public
+        returns (uint256[] memory userAccrued)
+    {
         bytes[] memory s = strategies[producerToken];
         uint256 sLen = s.length;
         userAccrued = new uint256[](sLen);
@@ -278,52 +235,26 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     }
 
     /**
-        @notice Claim rewards
-        @param  producerToken  ERC20    Producer token contract
-        @param  user           address  User
+      @notice Claim rewards for a given user
+      @param  rewardTokens  ERC20[]  Reward token contracts
+      @param  user          address  The user claiming rewards
     */
-    function claim(ERC20 producerToken, address user) external {
-        if (address(producerToken) == address(0)) revert ZeroAddress();
+    function claim(ERC20[] calldata rewardTokens, address user) internal {
+        uint256 rLen = rewardTokens.length;
+
+        if (rLen == 0) revert EmptyArray();
         if (user == address(0)) revert ZeroAddress();
 
-        accrueStrategy();
-        accrueUser(producerToken, user);
+        for (uint256 i; i < rLen; ++i) {
+            ERC20 r = rewardTokens[i];
+            uint256 accrued = rewardsAccrued[user][r];
 
-        ProducerToken storage p = producerTokens[producerToken];
-        uint256 globalRewards = p.globalState.rewards;
-        uint256 userRewards = p.userStates[user].rewards;
+            if (accrued != 0) {
+                rewardsAccrued[user][r] = 0;
 
-        // Claim should be skipped and not reverted on zero global/user reward
-        if (globalRewards != 0 && userRewards != 0) {
-            ERC20[] memory rewardTokens = p.rewardTokens;
-            uint256 rLen = rewardTokens.length;
+                producer.claimUserReward(address(r), accrued, user);
 
-            // Update global and user reward states to reflect the claim
-            p.globalState.rewards = globalRewards - userRewards;
-            p.userStates[user].rewards = 0;
-
-            emit Claim(producerToken, user);
-
-            // Transfer the proportionate reward token amounts to the recipient
-            for (uint256 i; i < rLen; ++i) {
-                ERC20 rewardToken = rewardTokens[i];
-                address rewardRecipient = p.rewardRecipients[user][rewardToken];
-                address recipient = rewardRecipient != address(0)
-                    ? rewardRecipient
-                    : user;
-                uint256 rewardState = p.rewardStates[rewardToken];
-                uint256 amount = (rewardState * userRewards) / globalRewards;
-
-                if (amount != 0) {
-                    // Update reward state (i.e. amount) to reflect reward tokens transferred out
-                    p.rewardStates[rewardToken] = rewardState - amount;
-
-                    producer.claimUserReward(
-                        address(rewardToken),
-                        amount,
-                        recipient
-                    );
-                }
+                emit Claim(r, user, accrued);
             }
         }
     }
