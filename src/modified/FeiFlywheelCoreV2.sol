@@ -24,10 +24,9 @@ import {Owned} from "solmate/auth/Owned.sol";
         - Change visibility to internal and add a leading unscore (to denote internal method)
             - accrueStrategy
             - accrueUser
-            - claimRewards
         - Remove state parameter from accrueUser and read strategy index in function body
         - Modify rewardsAccrued to support multiple rewards for each user
-        - Change claimRewards visibility to internal
+        - Remove claimRewards
 */
 contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
@@ -77,13 +76,6 @@ contract FeiFlywheelCoreV2 {
     );
 
     /**
-      @notice Emitted when a user claims accrued rewards.
-      @param  user    address  The user of the rewards
-      @param  amount  uint256  The amount of rewards claimed
-    */
-    event ClaimRewards(address indexed user, uint256 amount);
-
-    /**
       @notice Emitted when a new strategy is added to flywheel by the admin
       @param  newStrategy  bytes  The new added strategy
     */
@@ -92,29 +84,6 @@ contract FeiFlywheelCoreV2 {
     error InvalidStrategy();
     error ZeroAddress();
     error StrategyAlreadySet();
-
-    /*///////////////////////////////////////////////////////////////
-                        ACCRUE/CLAIM LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-      @notice Claim rewards for a given user
-      @param  user    address  The user claiming rewards
-      @param  reward  ERC20    The reward token contract
-    */
-    function _claimRewards(address user, ERC20 reward) internal {
-        if (user == address(0)) revert ZeroAddress();
-
-        uint256 accrued = rewardsAccrued[user][reward];
-
-        if (accrued != 0) {
-            rewardsAccrued[user][reward] = 0;
-
-            // TODO: Transfer rewards to user
-
-            emit ClaimRewards(user, accrued);
-        }
-    }
 
     /*///////////////////////////////////////////////////////////////
                           ADMIN LOGIC
