@@ -6,18 +6,37 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
-import {FeiFlywheelCoreV2} from "src/modified/FeiFlywheelCoreV2.sol";
 
 /**
-    Originally inspired by Flywheel V2 (thank you Tribe team):
+    Originally inspired by and utilizes Fei Protocol's Flywheel V2 accrual logic (thank you Tribe team):
     https://github.com/fei-protocol/flywheel-v2/blob/dbe3cb8/src/FlywheelCore.sol
 */
-contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
+contract PirexRewards is OwnableUpgradeable {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
+    struct Strategy {
+        ERC20 producerToken;
+        ERC20 rewardToken;
+    }
+
     // Core reward-producing Pirex contract
     IProducer public producer;
+
+    // The fixed point factor of flywheel
+    uint256 public constant ONE = 1e18;
+
+    // Append-only list of strategies added
+    bytes[] public allStrategies;
+
+    // The strategy index and last updated per strategy
+    mapping(bytes => uint256) public strategyState;
+
+    // User index per strategy
+    mapping(bytes => mapping(address => uint256)) public userIndex;
+
+    // The accrued but not yet transferred rewards for each user
+    mapping(address => mapping(ERC20 => uint256)) public rewardsAccrued;
 
     // Producer token => strategies
     mapping(ERC20 => bytes[]) public strategies;
@@ -26,6 +45,7 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
     mapping(address => mapping(ERC20 => address)) public rewardRecipients;
 
     event SetProducer(address producer);
+    event AddStrategy(bytes indexed newStrategy);
     event Claim(
         ERC20 indexed rewardToken,
         address indexed user,
@@ -37,13 +57,125 @@ contract PirexRewards is OwnableUpgradeable, FeiFlywheelCoreV2 {
         address indexed recipient
     );
     event UnsetRewardRecipient(address indexed user, ERC20 indexed rewardToken);
+    event AccrueStrategy(bytes indexed strategy, uint256 accruedRewards);
+    event AccrueRewards(
+        bytes indexed strategy,
+        address indexed user,
+        uint256 rewardsDelta,
+        uint256 rewardsIndex
+    );
 
     error ZeroAddress();
     error EmptyArray();
     error NotContract();
+    error StrategyAlreadySet();
 
     function initialize() public initializer {
         __Ownable_init();
+    }
+
+    /**
+      @notice Decode strategy
+      @param  strategy       bytes  The abi-encoded strategy to accrue a user's rewards on
+      @return producerToken  ERC20  The producer token contract
+      @return rewardToken    ERC20  The reward token contract
+    */
+    function _decodeStrategy(bytes memory strategy)
+        internal
+        pure
+        returns (ERC20 producerToken, ERC20 rewardToken)
+    {
+        return abi.decode(strategy, (ERC20, ERC20));
+    }
+
+    /**
+      @notice Initialize a new strategy
+      @param  strategy  bytes  The strategy to accrue a user's rewards on
+    */
+    function _addStrategyForRewards(bytes memory strategy) internal {
+        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
+
+        strategyState[strategy] = ONE;
+
+        allStrategies.push(strategy);
+
+        emit AddStrategy(strategy);
+    }
+
+    /**
+      @notice Sync strategy state with rewards
+      @param  strategy        bytes    The strategy to accrue a user's rewards on
+      @param  accruedRewards  uint256  The rewards amount accrued by the strategy
+      @return                 uint256  The updated strategy index value
+    */
+    function _accrueStrategy(bytes memory strategy, uint256 accruedRewards)
+        internal
+        returns (uint256)
+    {
+        emit AccrueStrategy(strategy, accruedRewards);
+
+        if (accruedRewards == 0) return strategyState[strategy];
+
+        (ERC20 producerToken, ) = _decodeStrategy(strategy);
+
+        // Use the booster or token supply to calculate reward index denominator
+        uint256 supplyTokens = producerToken.totalSupply();
+
+        uint256 deltaIndex;
+
+        if (supplyTokens != 0)
+            deltaIndex = ((accruedRewards * ONE) / supplyTokens);
+
+        // Accumulate rewards per token onto the index, multiplied by fixed-point factor
+        strategyState[strategy] += deltaIndex;
+
+        return strategyState[strategy];
+    }
+
+    /**
+      @notice Sync user state with strategy
+      @param  strategy  bytes         The strategy to accrue a user's rewards on
+      @param  user      address       The user to accrue rewards for
+    */
+    function _accrueUser(bytes memory strategy, address user)
+        internal
+        returns (uint256)
+    {
+        // Load indices
+        uint256 strategyIndex = strategyState[strategy];
+        uint256 supplierIndex = userIndex[strategy][user];
+
+        // Sync user index to global
+        userIndex[strategy][user] = strategyIndex;
+
+        // If user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
+        // Zero balances will have no effect other than syncing to global index
+        if (supplierIndex == 0) {
+            supplierIndex = ONE;
+        }
+
+        uint256 deltaIndex = strategyIndex - supplierIndex;
+        (ERC20 producerToken, ERC20 rewardToken) = _decodeStrategy(strategy);
+
+        // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
+        uint256 supplierDelta = (producerToken.balanceOf(user) * deltaIndex) /
+            ONE;
+        uint256 supplierAccrued = rewardsAccrued[user][rewardToken] +
+            supplierDelta;
+
+        rewardsAccrued[user][rewardToken] = supplierAccrued;
+
+        emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
+
+        return supplierAccrued;
+    }
+
+    /**
+      @notice Get strategies
+      @return bytes[]  The list of strategies
+    */
+    function getAllStrategies() external view returns (bytes[] memory) {
+        return allStrategies;
     }
 
     /**
