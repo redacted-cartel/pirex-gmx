@@ -32,24 +32,17 @@ contract FeiFlywheelCoreV2 {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
-    struct RewardsState {
-        // The strategy's last updated index
-        uint224 index;
-        // The timestamp the index was last updated at
-        uint32 lastUpdatedTimestamp;
-    }
-
     // The fixed point factor of flywheel
-    uint224 public constant ONE = 1e18;
+    uint256 public constant ONE = 1e18;
 
     // Append-only list of strategies added
     bytes[] public allStrategies;
 
     // The strategy index and last updated per strategy
-    mapping(bytes => RewardsState) public strategyState;
+    mapping(bytes => uint256) public strategyState;
 
     // User index per strategy
-    mapping(bytes => mapping(address => uint224)) public userIndex;
+    mapping(bytes => mapping(address => uint256)) public userIndex;
 
     // The accrued but not yet transferred rewards for each user
     mapping(address => mapping(ERC20 => uint256)) public rewardsAccrued;
@@ -88,12 +81,9 @@ contract FeiFlywheelCoreV2 {
       @param  strategy  bytes  The strategy to accrue a user's rewards on
     */
     function _addStrategyForRewards(bytes memory strategy) internal {
-        if (strategyState[strategy].index != 0) revert StrategyAlreadySet();
+        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
 
-        strategyState[strategy] = RewardsState({
-            index: ONE,
-            lastUpdatedTimestamp: block.timestamp.safeCastTo32()
-        });
+        strategyState[strategy] = ONE;
 
         allStrategies.push(strategy);
 
@@ -118,10 +108,11 @@ contract FeiFlywheelCoreV2 {
       @notice Sync strategy state with rewards
       @param  strategy        bytes    The strategy to accrue a user's rewards on
       @param  accruedRewards  uint256  The rewards amount accrued by the strategy
+      @return                 uint256  The updated strategy index value
     */
     function _accrueStrategy(bytes memory strategy, uint256 accruedRewards)
         internal
-        returns (RewardsState memory rewardsState)
+        returns (uint256)
     {
         emit AccrueStrategy(strategy, accruedRewards);
 
@@ -132,18 +123,15 @@ contract FeiFlywheelCoreV2 {
         // Use the booster or token supply to calculate reward index denominator
         uint256 supplyTokens = producer.totalSupply();
 
-        uint224 deltaIndex;
+        uint256 deltaIndex;
 
         if (supplyTokens != 0)
-            deltaIndex = ((accruedRewards * ONE) / supplyTokens)
-                .safeCastTo224();
+            deltaIndex = ((accruedRewards * ONE) / supplyTokens);
 
         // Accumulate rewards per token onto the index, multiplied by fixed-point factor
-        rewardsState = RewardsState({
-            index: strategyState[strategy].index + deltaIndex,
-            lastUpdatedTimestamp: block.timestamp.safeCastTo32()
-        });
-        strategyState[strategy] = rewardsState;
+        strategyState[strategy] += deltaIndex;
+
+        return strategyState[strategy];
     }
 
     /**
@@ -156,8 +144,8 @@ contract FeiFlywheelCoreV2 {
         returns (uint256)
     {
         // Load indices
-        uint224 strategyIndex = strategyState[strategy].index;
-        uint224 supplierIndex = userIndex[strategy][user];
+        uint256 strategyIndex = strategyState[strategy];
+        uint256 supplierIndex = userIndex[strategy][user];
 
         // Sync user index to global
         userIndex[strategy][user] = strategyIndex;
@@ -168,7 +156,7 @@ contract FeiFlywheelCoreV2 {
             supplierIndex = ONE;
         }
 
-        uint224 deltaIndex = strategyIndex - supplierIndex;
+        uint256 deltaIndex = strategyIndex - supplierIndex;
         (ERC20 producer, ERC20 reward) = _decodeStrategy(strategy);
 
         // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
