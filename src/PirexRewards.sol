@@ -226,6 +226,7 @@ contract PirexRewards is OwnableUpgradeable {
         // pxGMX and pxGLP rewards must be claimed all at once since PirexGmx is
         // the sole token holder
         (producerTokens, rewardTokens, rewardAmounts) = producer.claimRewards();
+
         uint256 pLen = producerTokens.length;
 
         // Iterate over the producer tokens and accrue strategy

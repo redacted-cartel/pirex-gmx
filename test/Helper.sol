@@ -678,7 +678,10 @@ contract Helper is Test, HelperEvents, HelperState {
     {
         vm.deal(address(this), etherAmount);
 
-        return pirexGmx.depositGlpETH{value: etherAmount}(1, 1, receiver);
+        (deposited, postFeeAmount, feeAmount) = pirexGmx.depositGlpETH{value: etherAmount}(1, 1, receiver);
+
+        // Fund GLP reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGlp.distributor());
     }
 
     /**
@@ -707,6 +710,9 @@ contract Helper is Test, HelperEvents, HelperState {
             1,
             receiver
         );
+
+        // Fund GLP reward distributor contract with WETH
+        _mintWrappedToken(10e18, rewardTrackerGlp.distributor());
     }
 
     /**

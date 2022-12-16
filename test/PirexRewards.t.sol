@@ -7,11 +7,36 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {TransparentUpgradeableProxy} from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {PirexRewards} from "src/PirexRewards.sol";
 import {PirexRewardsMock} from "src/mocks/PirexRewardsMock.sol";
-import {FeiFlywheelCoreV2} from "src/modified/FeiFlywheelCoreV2.sol";
 import {PirexGmx} from "src/PirexGmx.sol";
 import {Helper} from "test/Helper.sol";
 
 contract PirexRewardsTest is Helper {
+    function _setStrategies() internal {
+        ERC20[] memory producerTokens = new ERC20[](2);
+        ERC20[] memory rewardTokens = new ERC20[](2);
+        producerTokens[0] = pxGmx;
+        producerTokens[1] = pxGlp;
+        rewardTokens[0] = weth;
+        rewardTokens[1] = pxGmx;
+
+        uint256 one = pirexRewards.ONE();
+
+        for (uint256 i; i < producerTokens.length; ++i) {
+            for (uint256 j; j < rewardTokens.length; ++j) {
+                pirexRewards.addStrategyForRewards(
+                    producerTokens[i],
+                    rewardTokens[j]
+                );
+
+                uint256 index = pirexRewards.strategyState(
+                    abi.encode(producerTokens[i], rewardTokens[j])
+                );
+
+                assertEq(one, index);
+            }
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                         setProducer TESTS
     //////////////////////////////////////////////////////////////*/
@@ -96,7 +121,7 @@ contract PirexRewardsTest is Helper {
 
         pirexRewards.addStrategyForRewards(producerToken, rewardToken);
 
-        vm.expectRevert(FeiFlywheelCoreV2.StrategyAlreadySet.selector);
+        vm.expectRevert(PirexRewards.StrategyAlreadySet.selector);
 
         pirexRewards.addStrategyForRewards(producerToken, rewardToken);
     }
@@ -132,6 +157,45 @@ contract PirexRewardsTest is Helper {
 
                 assertEq(strategy, allStrategies[allStrategies.length - 1]);
             }
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        accrueStrategy TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice  Test tx success: accrue strategy
+     */
+    function testAccrueStrategy() external {
+        _setStrategies();
+
+        // Deposit GMX and GLP to accrue GMX rewards
+        _depositGmx(1e18, address(this));
+        _depositGlp(1e18, address(this));
+
+        vm.warp(block.timestamp + 10_000);
+
+        // Sync PirexRewards strategy state with accrued rewards
+        (
+            ERC20[] memory producerTokens,
+            ERC20[] memory rewardTokens,
+            uint256[] memory rewardAmounts
+        ) = pirexRewards.accrueStrategy();
+
+        // First time accruing strategies, they should all be ONE previously
+        uint256 startingStrategyIndex = pirexRewards.ONE();
+
+        for (uint256 i; i < producerTokens.length; ++i) {
+            uint256 expectedRewardDelta = (rewardAmounts[i] * 1e18) /
+                producerTokens[i].totalSupply();
+
+            assertEq(
+                startingStrategyIndex + expectedRewardDelta,
+                pirexRewards.strategyState(
+                    abi.encode(producerTokens[i], rewardTokens[i])
+                )
+            );
         }
     }
 
