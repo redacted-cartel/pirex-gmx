@@ -23,16 +23,18 @@ contract PirexRewards is OwnableUpgradeable {
     // Core reward-producing Pirex contract
     IProducer public producer;
 
-    // The fixed point factor of flywheel
+    // The fixed point factor
     uint256 public constant ONE = 1e18;
 
     // Append-only list of strategies added
     bytes[] public allStrategies;
 
-    // The strategy index and last updated per strategy
+    // The strategy index
+    // Strategy (abi-encoded producer and reward tokens) => index
     mapping(bytes => uint256) public strategyState;
 
     // User index per strategy
+    // Strategy => user => index
     mapping(bytes => mapping(address => uint256)) public userIndex;
 
     // The accrued but not yet transferred rewards for each user
@@ -41,6 +43,7 @@ contract PirexRewards is OwnableUpgradeable {
     // Producer token => strategies
     mapping(ERC20 => bytes[]) public strategies;
 
+    // Accounts which users are forwarding their rewards to
     // User address => reward token => reward recipient address
     mapping(address => mapping(ERC20 => address)) public rewardRecipients;
 
@@ -134,8 +137,8 @@ contract PirexRewards is OwnableUpgradeable {
 
     /**
       @notice Sync user state with strategy
-      @param  strategy  bytes         The strategy to accrue a user's rewards on
-      @param  user      address       The user to accrue rewards for
+      @param  strategy  bytes    The strategy to accrue a user's rewards on
+      @param  user      address  The user to accrue rewards for
     */
     function _accrueUser(bytes memory strategy, address user)
         internal
@@ -212,8 +215,8 @@ contract PirexRewards is OwnableUpgradeable {
     /**
         @notice Accrue strategy rewards
         @return producerTokens  ERC20[]  Producer token contracts
-        @return rewardTokens     ERC20[]  Reward token contracts
-        @return rewardAmounts    ERC20[]  Reward token amounts
+        @return rewardTokens    ERC20[]  Reward token contracts
+        @return rewardAmounts   ERC20[]  Reward token amounts
     */
     function accrueStrategy()
         public
@@ -252,6 +255,9 @@ contract PirexRewards is OwnableUpgradeable {
         public
         returns (uint256[] memory userAccrued)
     {
+        if (address(producerToken) == address(0)) revert ZeroAddress();
+        if (user == address(0)) revert ZeroAddress();
+
         bytes[] memory s = strategies[producerToken];
         uint256 sLen = s.length;
         userAccrued = new uint256[](sLen);
