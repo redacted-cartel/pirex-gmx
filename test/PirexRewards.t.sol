@@ -148,14 +148,13 @@ contract PirexRewardsTest is Helper {
 
                 emit AddStrategy(strategy);
 
-                pirexRewards.addStrategyForRewards(
-                    producerTokens[i],
-                    rewardTokens[j]
+                assertEq(
+                    strategy,
+                    pirexRewards.addStrategyForRewards(
+                        producerTokens[i],
+                        rewardTokens[j]
+                    )
                 );
-
-                bytes[] memory allStrategies = pirexRewards.getAllStrategies();
-
-                assertEq(strategy, allStrategies[allStrategies.length - 1]);
             }
         }
     }
@@ -196,6 +195,73 @@ contract PirexRewardsTest is Helper {
                     abi.encode(producerTokens[i], rewardTokens[i])
                 )
             );
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        accrueUser TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+        @notice Test tx reversion: producerToken is zero address
+     */
+    function testCannotAccrueUserProducerTokenZeroAddress() external {
+        ERC20 invalidProducerToken = ERC20(address(0));
+        address user = address(this);
+
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+
+        pirexRewards.setRewardRecipient(invalidProducerToken, user);
+    }
+
+    /**
+        @notice Test tx reversion: user is zero address
+     */
+    function testCannotAccrueUserUserZeroAddress() external {
+        ERC20 producerToken = pxGmx;
+        address invalidUser = address(0);
+
+        vm.expectRevert(PirexRewards.ZeroAddress.selector);
+
+        pirexRewards.setRewardRecipient(producerToken, invalidUser);
+    }
+
+    /**
+        @notice Test tx success: user accrued upon depositing the first time
+     */
+    function testAccrueUser() external {
+        _setStrategies();
+
+        uint256 tLen = testAccounts.length;
+        bytes[] memory pxGmxStrategies = pirexRewards.getStrategies(pxGmx);
+        bytes[] memory pxGlpStrategies = pirexRewards.getStrategies(pxGlp);
+
+        for (uint256 i; i < tLen; ++i) {
+            address testAccount = testAccounts[i];
+
+            // Mint pxGMX and pxGLP, which results in the accrueUser hook being called
+            _depositGmx(1e18, testAccount);
+            _depositGlp(1e18, testAccount);
+
+            for (uint256 j; j < pxGmxStrategies.length; ++j) {
+                bytes memory strategy = pxGmxStrategies[j];
+
+                // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
+                assertEq(
+                    pirexRewards.strategyState(strategy),
+                    pirexRewards.userIndex(strategy, testAccount)
+                );
+            }
+
+            for (uint256 k; k < pxGlpStrategies.length; ++k) {
+                bytes memory strategy = pxGlpStrategies[k];
+
+                // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
+                assertEq(
+                    pirexRewards.strategyState(strategy),
+                    pirexRewards.userIndex(strategy, testAccount)
+                );
+            }
         }
     }
 
@@ -536,12 +602,14 @@ contract PirexRewardsTest is Helper {
 
         assertEq(proxyAddress, pirexGmx.pirexRewards());
 
-        pirexRewards.addStrategyForRewards(pxGmx, weth);
+        _setStrategies();
 
-        bytes[] memory oldStrategies = pirexRewards.getAllStrategies();
-        uint256 oldMethodResult = oldStrategies.length;
+        ERC20 producerToken = pxGmx;
+        uint256 previousGmxStrategies = (
+            pirexRewards.getStrategies(producerToken)
+        ).length;
 
-        assertGt(oldMethodResult, 0);
+        assertGt(previousGmxStrategies, 0);
 
         // Deploy and set a new implementation to the proxy as the admin
         PirexRewardsMock newImplementation = new PirexRewardsMock();
@@ -559,8 +627,8 @@ contract PirexRewardsTest is Helper {
         // by attempting to call a new method only available in the new instance
         // and also assert the returned value
         assertEq(
-            oldMethodResult * 2,
-            PirexRewardsMock(proxyAddress).getRewardStateMock()
+            previousGmxStrategies * 2,
+            PirexRewardsMock(proxyAddress).getRewardStateMock(producerToken)
         );
 
         // Confirm that the address of the proxy doesn't change, only the implementation

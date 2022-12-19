@@ -7,12 +7,12 @@ import {PirexRewards} from "src/PirexRewards.sol";
 // Used for testing contract upgrade
 contract PirexRewardsMock is PirexRewards {
     // New method used for testing upgradeability
-    function getRewardStateMock()
+    function getRewardStateMock(ERC20 producerToken)
         external
         view
         returns (uint256)
     {
         // Return double the number of strategies from the original implementation
-        return allStrategies.length * 2;
+        return strategies[producerToken].length * 2;
     }
 }

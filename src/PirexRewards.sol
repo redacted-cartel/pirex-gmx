@@ -20,14 +20,11 @@ contract PirexRewards is OwnableUpgradeable {
         ERC20 rewardToken;
     }
 
-    // Core reward-producing Pirex contract
-    IProducer public producer;
-
     // The fixed point factor
     uint256 public constant ONE = 1e18;
 
-    // Append-only list of strategies added
-    bytes[] public allStrategies;
+    // Core reward-producing Pirex contract
+    IProducer public producer;
 
     // The strategy index
     // Strategy (abi-encoded producer and reward tokens) => index
@@ -89,20 +86,6 @@ contract PirexRewards is OwnableUpgradeable {
         returns (ERC20 producerToken, ERC20 rewardToken)
     {
         return abi.decode(strategy, (ERC20, ERC20));
-    }
-
-    /**
-      @notice Initialize a new strategy
-      @param  strategy  bytes  The strategy to accrue a user's rewards on
-    */
-    function _addStrategyForRewards(bytes memory strategy) internal {
-        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
-
-        strategyState[strategy] = ONE;
-
-        allStrategies.push(strategy);
-
-        emit AddStrategy(strategy);
     }
 
     /**
@@ -174,11 +157,16 @@ contract PirexRewards is OwnableUpgradeable {
     }
 
     /**
-      @notice Get strategies
-      @return bytes[]  The list of strategies
-    */
-    function getAllStrategies() external view returns (bytes[] memory) {
-        return allStrategies;
+        @notice Get strategies for a producer token
+        @param  producerToken  ERC20    Producer token contract
+        @return                bytes[]  Strategies list
+     */
+    function getStrategies(ERC20 producerToken)
+        external
+        view
+        returns (bytes[] memory)
+    {
+        return strategies[producerToken];
     }
 
     /**
@@ -197,19 +185,27 @@ contract PirexRewards is OwnableUpgradeable {
         @notice Add a strategy comprised of a producer and reward token
         @param  producerToken  ERC20  Producer token contract
         @param  rewardToken    ERC20  Reward token contract
+        @return strategy       bytes  Strategy
     */
     function addStrategyForRewards(ERC20 producerToken, ERC20 rewardToken)
         external
         onlyOwner
+        returns (bytes memory)
     {
         if (address(producerToken) == address(0)) revert ZeroAddress();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
         bytes memory strategy = abi.encode(producerToken, rewardToken);
 
+        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
+
         strategies[producerToken].push(strategy);
 
-        _addStrategyForRewards(strategy);
+        strategyState[strategy] = ONE;
+
+        emit AddStrategy(strategy);
+
+        return strategy;
     }
 
     /**
