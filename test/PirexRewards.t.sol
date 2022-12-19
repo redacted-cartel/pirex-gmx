@@ -11,6 +11,9 @@ import {PirexGmx} from "src/PirexGmx.sol";
 import {Helper} from "test/Helper.sol";
 
 contract PirexRewardsTest is Helper {
+    /**
+        @notice Set all of the Pirex-GMX strategies
+     */
     function _setStrategies() internal {
         ERC20[] memory producerTokens = new ERC20[](2);
         ERC20[] memory rewardTokens = new ERC20[](2);
@@ -33,6 +36,94 @@ contract PirexRewardsTest is Helper {
                 );
 
                 assertEq(one, index);
+            }
+        }
+    }
+
+    /**
+        @notice Mock-up reward accrual state for the pxGMX-WETH strategy
+        @param  iterations           uint256  Number of iterations to accrue rewards
+        @param  secondsElapsed       uint256  Seconds elapsed between each reward accrual iteration
+        @param  aliceDeposit         uint256  Alice pxGMX deposit amount
+        @param  bobDeposit           uint256  Bob pxGMX deposit amount
+        @param  bobDepositIteration  uint256  Iteration at which Bob deposits pxGMX
+     */
+    function _mockStrategyRewardAccrual(
+        uint256 iterations,
+        uint256 secondsElapsed,
+        uint256 aliceDeposit,
+        uint256 bobDeposit,
+        uint256 bobDepositIteration
+    )
+        internal
+        returns (
+            uint256[] memory rewards,
+            uint256[] memory aliceRewards,
+            uint256[] memory bobRewards
+        )
+    {
+        // Bob must deposit before the number of reward accrual iterations is over
+        assert(iterations > bobDepositIteration);
+
+        _setStrategies();
+
+        // Mint GMX ahead of actual tests due to timestamp forwarding (to bypass GMX lock)
+        // This provides us with a measure of predictability when testing reward accrual
+        _mintApproveGmx(
+            aliceDeposit + bobDeposit,
+            address(this),
+            address(pirexGmx),
+            aliceDeposit + bobDeposit
+        );
+
+        address alice = testAccounts[0];
+        address bob = testAccounts[1];
+
+        pirexGmx.depositGmx(aliceDeposit, alice);
+
+        rewards = new uint256[](iterations);
+        aliceRewards = new uint256[](iterations);
+        bobRewards = new uint256[](iterations);
+
+        for (uint256 i; i < iterations; ++i) {
+            // Used to calculate the exact amount of rewards accrued for an iteration
+            uint256 aliceTotalRewards = pirexRewards.rewardsAccrued(
+                alice,
+                weth
+            );
+            uint256 bobTotalRewards = pirexRewards.rewardsAccrued(bob, weth);
+
+            vm.warp(block.timestamp + secondsElapsed);
+
+            (, , uint256[] memory rewardAmounts) = pirexRewards
+                .accrueStrategy();
+
+            rewards[i] = rewardAmounts[0];
+
+            // Accrue user rewards
+            pirexRewards.accrueUser(pxGmx, alice);
+            pirexRewards.accrueUser(pxGmx, bob);
+
+            // Deduct the previous accrued amounts to get the amounts accrued for this iteration
+            aliceRewards[i] =
+                pirexRewards.rewardsAccrued(alice, weth) -
+                aliceTotalRewards;
+            bobRewards[i] =
+                pirexRewards.rewardsAccrued(bob, weth) -
+                bobTotalRewards;
+
+            if (i == bobDepositIteration) {
+                pirexGmx.depositGmx(bobDeposit, bob);
+
+                // Bob should have 0 rewards accrued since he is a new token holder
+                assertEq(0, pirexRewards.rewardsAccrued(bob, weth));
+
+                // Alice should have all of the rewards accrued so far
+                assertEq(
+                    pirexRewards.strategyState(abi.encode(pxGmx, weth)) -
+                        pirexRewards.ONE(),
+                    pirexRewards.rewardsAccrued(alice, weth)
+                );
             }
         }
     }
@@ -263,6 +354,14 @@ contract PirexRewardsTest is Helper {
                 );
             }
         }
+    }
+
+    function testAccrueUserMock() external {
+        (
+            uint256[] memory rewards,
+            uint256[] memory aliceRewards,
+            uint256[] memory bobRewards
+        ) = _mockStrategyRewardAccrual(5, 1000, 1e18, 4e18, 2);
     }
 
     /*//////////////////////////////////////////////////////////////
