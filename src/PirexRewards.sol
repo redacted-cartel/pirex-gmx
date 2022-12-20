@@ -2,22 +2,24 @@
 pragma solidity 0.8.17;
 
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 /**
     Originally inspired by and utilizes Fei Protocol's Flywheel V2 accrual logic (thank you Tribe team):
     https://github.com/fei-protocol/flywheel-v2/blob/dbe3cb8/src/FlywheelCore.sol
 */
 contract PirexRewards is OwnableUpgradeable {
-    using SafeTransferLib for ERC20;
-    using SafeCastLib for uint256;
+    using FixedPointMathLib for uint256;
 
-    struct Strategy {
-        ERC20 producerToken;
-        ERC20 rewardToken;
+    struct User {
+        // User indexes by strategy
+        mapping(bytes => uint256) index;
+        // Accrued but not yet transferred rewards
+        mapping(ERC20 => uint256) rewardsAccrued;
+        // Accounts which users are forwarding their rewards to
+        mapping(ERC20 => address) rewardRecipients;
     }
 
     // The fixed point factor
@@ -26,29 +28,21 @@ contract PirexRewards is OwnableUpgradeable {
     // Core reward-producing Pirex contract
     IProducer public producer;
 
-    // The strategy index
-    // Strategy (abi-encoded producer and reward tokens) => index
-    mapping(bytes => uint256) public strategyState;
-
-    // User index per strategy
-    // Strategy => user => index
-    mapping(bytes => mapping(address => uint256)) public userIndex;
-
-    // The accrued but not yet transferred rewards for each user
-    mapping(address => mapping(ERC20 => uint256)) public rewardsAccrued;
-
-    // Producer token => strategies
+    // Strategies by producer token
     mapping(ERC20 => bytes[]) public strategies;
 
-    // Accounts which users are forwarding their rewards to
-    // User address => reward token => reward recipient address
-    mapping(address => mapping(ERC20 => address)) public rewardRecipients;
+    // Strategy indexes
+    mapping(bytes => uint256) public strategyIndexes;
+
+    // User data
+    mapping(address => User) internal users;
 
     event SetProducer(address producer);
     event AddStrategy(bytes indexed newStrategy);
     event Claim(
         ERC20 indexed rewardToken,
         address indexed user,
+        address indexed recipient,
         uint256 amount
     );
     event SetRewardRecipient(
@@ -65,10 +59,10 @@ contract PirexRewards is OwnableUpgradeable {
         uint256 rewardsIndex
     );
 
+    error StrategyAlreadySet();
     error ZeroAddress();
     error EmptyArray();
     error NotContract();
-    error StrategyAlreadySet();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -89,7 +83,7 @@ contract PirexRewards is OwnableUpgradeable {
     }
 
     /**
-      @notice Sync strategy state with rewards
+      @notice Sync strategy index with the rewards
       @param  strategy        bytes    The strategy to accrue a user's rewards on
       @param  accruedRewards  uint256  The rewards amount accrued by the strategy
       @return                 uint256  The updated strategy index value
@@ -100,7 +94,7 @@ contract PirexRewards is OwnableUpgradeable {
     {
         emit AccrueStrategy(strategy, accruedRewards);
 
-        if (accruedRewards == 0) return strategyState[strategy];
+        if (accruedRewards == 0) return strategyIndexes[strategy];
 
         (ERC20 producerToken, ) = _decodeStrategy(strategy);
 
@@ -110,12 +104,12 @@ contract PirexRewards is OwnableUpgradeable {
         uint256 deltaIndex;
 
         if (supplyTokens != 0)
-            deltaIndex = ((accruedRewards * ONE) / supplyTokens);
+            deltaIndex = accruedRewards.mulDivDown(ONE, supplyTokens);
 
         // Accumulate rewards per token onto the index, multiplied by fixed-point factor
-        strategyState[strategy] += deltaIndex;
+        strategyIndexes[strategy] += deltaIndex;
 
-        return strategyState[strategy];
+        return strategyIndexes[strategy];
     }
 
     /**
@@ -127,12 +121,14 @@ contract PirexRewards is OwnableUpgradeable {
         internal
         returns (uint256)
     {
+        User storage u = users[user];
+
         // Load indices
-        uint256 strategyIndex = strategyState[strategy];
-        uint256 supplierIndex = userIndex[strategy][user];
+        uint256 strategyIndex = strategyIndexes[strategy];
+        uint256 supplierIndex = u.index[strategy];
 
         // Sync user index to global
-        userIndex[strategy][user] = strategyIndex;
+        u.index[strategy] = strategyIndex;
 
         // If user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
         // Zero balances will have no effect other than syncing to global index
@@ -144,12 +140,13 @@ contract PirexRewards is OwnableUpgradeable {
         (ERC20 producerToken, ERC20 rewardToken) = _decodeStrategy(strategy);
 
         // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
-        uint256 supplierDelta = (producerToken.balanceOf(user) * deltaIndex) /
-            ONE;
-        uint256 supplierAccrued = rewardsAccrued[user][rewardToken] +
-            supplierDelta;
+        uint256 supplierDelta = producerToken.balanceOf(user).mulDivDown(
+            deltaIndex,
+            ONE
+        );
+        uint256 supplierAccrued = u.rewardsAccrued[rewardToken] + supplierDelta;
 
-        rewardsAccrued[user][rewardToken] = supplierAccrued;
+        u.rewardsAccrued[rewardToken] = supplierAccrued;
 
         emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
 
@@ -167,6 +164,32 @@ contract PirexRewards is OwnableUpgradeable {
         returns (bytes[] memory)
     {
         return strategies[producerToken];
+    }
+
+    /**
+        @notice Get a strategy index for a user
+        @param  user      address  User
+        @param  strategy  bytes    Strategy (abi-encoded producer and reward tokens)
+     */
+    function getUserIndex(address user, bytes memory strategy)
+        external
+        view
+        returns (uint256)
+    {
+        return users[user].index[strategy];
+    }
+
+    /**
+        @notice Get the rewards accrued for a user
+        @param  user         address  User
+        @param  rewardToken  ERC20    Reward token contract
+     */
+    function getUserRewardsAccrued(address user, ERC20 rewardToken)
+        external
+        view
+        returns (uint256)
+    {
+        return users[user].rewardsAccrued[rewardToken];
     }
 
     /**
@@ -197,11 +220,11 @@ contract PirexRewards is OwnableUpgradeable {
 
         bytes memory strategy = abi.encode(producerToken, rewardToken);
 
-        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
+        if (strategyIndexes[strategy] != 0) revert StrategyAlreadySet();
 
         strategies[producerToken].push(strategy);
 
-        strategyState[strategy] = ONE;
+        strategyIndexes[strategy] = ONE;
 
         emit AddStrategy(strategy);
 
@@ -275,16 +298,24 @@ contract PirexRewards is OwnableUpgradeable {
         if (rLen == 0) revert EmptyArray();
         if (user == address(0)) revert ZeroAddress();
 
+        User storage u = users[user];
+
         for (uint256 i; i < rLen; ++i) {
             ERC20 r = rewardTokens[i];
-            uint256 accrued = rewardsAccrued[user][r];
+            uint256 accrued = u.rewardsAccrued[r];
 
             if (accrued != 0) {
-                rewardsAccrued[user][r] = 0;
+                u.rewardsAccrued[r] = 0;
 
-                producer.claimUserReward(address(r), accrued, user);
+                // Forward rewards if a rewardRecipient is set
+                address rewardRecipient = users[user].rewardRecipients[r];
+                address recipient = rewardRecipient == address(0)
+                    ? user
+                    : rewardRecipient;
 
-                emit Claim(r, user, accrued);
+                producer.claimUserReward(address(r), accrued, recipient);
+
+                emit Claim(r, user, recipient, accrued);
             }
         }
     }
@@ -300,7 +331,7 @@ contract PirexRewards is OwnableUpgradeable {
         view
         returns (address)
     {
-        return rewardRecipients[user][rewardToken];
+        return users[user].rewardRecipients[rewardToken];
     }
 
     /**
@@ -312,7 +343,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
 
-        rewardRecipients[msg.sender][rewardToken] = recipient;
+        users[msg.sender].rewardRecipients[rewardToken] = recipient;
 
         emit SetRewardRecipient(msg.sender, rewardToken, recipient);
     }
@@ -324,7 +355,7 @@ contract PirexRewards is OwnableUpgradeable {
     function unsetRewardRecipient(ERC20 rewardToken) external {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        delete rewardRecipients[msg.sender][rewardToken];
+        delete users[msg.sender].rewardRecipients[rewardToken];
 
         emit UnsetRewardRecipient(msg.sender, rewardToken);
     }
@@ -350,7 +381,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
 
-        rewardRecipients[lpContract][rewardToken] = recipient;
+        users[lpContract].rewardRecipients[rewardToken] = recipient;
 
         emit SetRewardRecipient(lpContract, rewardToken, recipient);
     }
@@ -367,7 +398,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (lpContract.code.length == 0) revert NotContract();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        delete rewardRecipients[lpContract][rewardToken];
+        delete users[lpContract].rewardRecipients[rewardToken];
 
         emit UnsetRewardRecipient(lpContract, rewardToken);
     }

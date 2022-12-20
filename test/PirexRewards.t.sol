@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import "forge-std/Test.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {TransparentUpgradeableProxy} from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {PirexRewards} from "src/PirexRewards.sol";
 import {PirexRewardsMock} from "src/mocks/PirexRewardsMock.sol";
@@ -11,6 +12,8 @@ import {PirexGmx} from "src/PirexGmx.sol";
 import {Helper} from "test/Helper.sol";
 
 contract PirexRewardsTest is Helper {
+    using FixedPointMathLib for uint256;
+
     /**
         @notice Set all of the Pirex-GMX strategies
      */
@@ -31,7 +34,7 @@ contract PirexRewardsTest is Helper {
                     rewardTokens[j]
                 );
 
-                uint256 index = pirexRewards.strategyState(
+                uint256 index = pirexRewards.strategyIndexes(
                     abi.encode(producerTokens[i], rewardTokens[j])
                 );
 
@@ -87,11 +90,14 @@ contract PirexRewardsTest is Helper {
 
         for (uint256 i; i < iterations; ++i) {
             // Used to calculate the exact amount of rewards accrued for an iteration
-            uint256 aliceTotalRewards = pirexRewards.rewardsAccrued(
+            uint256 aliceTotalRewards = pirexRewards.getUserRewardsAccrued(
                 alice,
                 weth
             );
-            uint256 bobTotalRewards = pirexRewards.rewardsAccrued(bob, weth);
+            uint256 bobTotalRewards = pirexRewards.getUserRewardsAccrued(
+                bob,
+                weth
+            );
 
             vm.warp(block.timestamp + secondsElapsed);
 
@@ -106,23 +112,23 @@ contract PirexRewardsTest is Helper {
 
             // Deduct the previous accrued amounts to get the amounts accrued for this iteration
             aliceRewards[i] =
-                pirexRewards.rewardsAccrued(alice, weth) -
+                pirexRewards.getUserRewardsAccrued(alice, weth) -
                 aliceTotalRewards;
             bobRewards[i] =
-                pirexRewards.rewardsAccrued(bob, weth) -
+                pirexRewards.getUserRewardsAccrued(bob, weth) -
                 bobTotalRewards;
 
             if (i == bobDepositIteration) {
                 pirexGmx.depositGmx(bobDeposit, bob);
 
                 // Bob should have 0 rewards accrued since he is a new token holder
-                assertEq(0, pirexRewards.rewardsAccrued(bob, weth));
+                assertEq(0, pirexRewards.getUserRewardsAccrued(bob, weth));
 
                 // Alice should have all of the rewards accrued so far
                 assertEq(
-                    pirexRewards.strategyState(abi.encode(pxGmx, weth)) -
+                    pirexRewards.strategyIndexes(abi.encode(pxGmx, weth)) -
                         pirexRewards.ONE(),
-                    pirexRewards.rewardsAccrued(alice, weth)
+                    pirexRewards.getUserRewardsAccrued(alice, weth)
                 );
             }
         }
@@ -282,7 +288,7 @@ contract PirexRewardsTest is Helper {
 
             assertEq(
                 startingStrategyIndex + expectedRewardDelta,
-                pirexRewards.strategyState(
+                pirexRewards.strategyIndexes(
                     abi.encode(producerTokens[i], rewardTokens[i])
                 )
             );
@@ -339,8 +345,8 @@ contract PirexRewardsTest is Helper {
 
                 // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
                 assertEq(
-                    pirexRewards.strategyState(strategy),
-                    pirexRewards.userIndex(strategy, testAccount)
+                    pirexRewards.strategyIndexes(strategy),
+                    pirexRewards.getUserIndex(testAccount, strategy)
                 );
             }
 
@@ -349,19 +355,89 @@ contract PirexRewardsTest is Helper {
 
                 // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
                 assertEq(
-                    pirexRewards.strategyState(strategy),
-                    pirexRewards.userIndex(strategy, testAccount)
+                    pirexRewards.strategyIndexes(strategy),
+                    pirexRewards.getUserIndex(testAccount, strategy)
                 );
             }
         }
     }
 
+    /**
+        @notice Test tx success: precise user reward accrual based on an audit's PoC parameters
+     */
     function testAccrueUserMock() external {
+        uint256 iterations = 5;
+        uint256 secondsElapsed = 10_000;
+        uint256 aliceDeposit = 1e18;
+        uint256 bobDeposit = 4e18;
+        uint256 bobDepositIteration = 2;
         (
             uint256[] memory rewards,
             uint256[] memory aliceRewards,
             uint256[] memory bobRewards
-        ) = _mockStrategyRewardAccrual(5, 1000, 1e18, 4e18, 2);
+        ) = _mockStrategyRewardAccrual(
+                iterations,
+                secondsElapsed,
+                aliceDeposit,
+                bobDeposit,
+                bobDepositIteration
+            );
+        address alice = testAccounts[0];
+        address bob = testAccounts[1];
+        uint256 totalAliceRewards;
+        uint256 totalBobRewards;
+        uint256 totalRewards;
+
+        for (uint256 i; i < rewards.length; ++i) {
+            totalAliceRewards += aliceRewards[i];
+            totalBobRewards += bobRewards[i];
+            totalRewards += rewards[i];
+
+            // Alice should receive all of the rewards up to including the iteration that Bob deposits
+            // The reason is because strategy rewards are accrued prior to Bob's deposit and his tokens
+            // do not yet produce rewards
+            if (i <= bobDepositIteration) {
+                assertEq(rewards[i], aliceRewards[i]);
+                assertEq(0, bobRewards[i]);
+            } else {
+                // Iterations following Bob's deposit will result in each user's reward being based
+                // on their ownership of the total supply (e.g. a user that owns 50% of pxGMX should
+                // get 50% of the rewards produced by the entire supply)
+                uint256 aliceProportionateRewards = rewards[i].mulDivDown(
+                    pxGmx.balanceOf(alice),
+                    pxGmx.totalSupply()
+                );
+                uint256 bobProportionateRewards = rewards[i].mulDivDown(
+                    pxGmx.balanceOf(bob),
+                    pxGmx.totalSupply()
+                );
+
+                assertLe(aliceProportionateRewards, aliceRewards[i]);
+                assertLe(bobProportionateRewards, bobRewards[i]);
+
+                // Assert that the disrepancy is less than 0.000001% (1 millionth of a percent)
+                assertGe(
+                    aliceProportionateRewards,
+                    (aliceRewards[i] * 999_999) / 1_000_000
+                );
+                assertGe(
+                    bobProportionateRewards,
+                    (bobRewards[i] * 999_999) / 1_000_000
+                );
+            }
+        }
+
+        assertEq(
+            totalAliceRewards,
+            pirexRewards.getUserRewardsAccrued(alice, weth)
+        );
+        assertEq(
+            totalBobRewards,
+            pirexRewards.getUserRewardsAccrued(bob, weth)
+        );
+
+        // Total user rewards will not add up exactly to the total rewards due to rounding down
+        assertLe(totalAliceRewards + totalBobRewards, totalRewards);
     }
 
     /*//////////////////////////////////////////////////////////////

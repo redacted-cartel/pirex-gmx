@@ -68,14 +68,10 @@ contract PirexFeesTest is Helper {
         for (uint256 i; i < testAccounts.length; ++i) {
             assertEq(0, weth.balanceOf(testAccounts[i]));
 
-            uint256 expectedDistributionWeth = pirexRewards.rewardsAccrued(
-                testAccounts[i],
-                weth
-            );
-            uint256 expectedDistributionPxGmx = pirexRewards.rewardsAccrued(
-                testAccounts[i],
-                pxGmx
-            );
+            uint256 expectedDistributionWeth = pirexRewards
+                .getUserRewardsAccrued(testAccounts[i], weth);
+            uint256 expectedDistributionPxGmx = pirexRewards
+                .getUserRewardsAccrued(testAccounts[i], pxGmx);
 
             totalExpectedDistributionWeth += expectedDistributionWeth;
             totalExpectedDistributionPxGmx += expectedDistributionPxGmx;
