@@ -4,12 +4,15 @@ pragma solidity 0.8.17;
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 /**
     Originally inspired by and utilizes Fei Protocol's Flywheel V2 accrual logic (thank you Tribe team):
     https://github.com/fei-protocol/flywheel-v2/blob/dbe3cb8/src/FlywheelCore.sol
 */
 contract PirexRewards is OwnableUpgradeable {
+    using FixedPointMathLib for uint256;
+
     struct User {
         // User indexes by strategy
         mapping(bytes => uint256) index;
@@ -100,7 +103,7 @@ contract PirexRewards is OwnableUpgradeable {
         uint256 deltaIndex;
 
         if (supplyTokens != 0)
-            deltaIndex = ((accruedRewards * ONE) / supplyTokens);
+            deltaIndex = accruedRewards.mulDivDown(ONE, supplyTokens);
 
         // Accumulate rewards per token onto the index, multiplied by fixed-point factor
         strategyIndexes[strategy] += deltaIndex;
@@ -136,8 +139,10 @@ contract PirexRewards is OwnableUpgradeable {
         (ERC20 producerToken, ERC20 rewardToken) = _decodeStrategy(strategy);
 
         // Accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
-        uint256 supplierDelta = (producerToken.balanceOf(user) * deltaIndex) /
-            ONE;
+        uint256 supplierDelta = producerToken.balanceOf(user).mulDivDown(
+            deltaIndex,
+            ONE
+        );
         uint256 supplierAccrued = u.rewardsAccrued[rewardToken] + supplierDelta;
 
         u.rewardsAccrued[rewardToken] = supplierAccrued;
