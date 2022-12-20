@@ -20,6 +20,8 @@ contract PirexRewards is OwnableUpgradeable {
         mapping(bytes => uint256) strategyIndex;
         // Accrued but not yet transferred rewards
         mapping(ERC20 => uint256) rewardsAccrued;
+        // Accounts which users are forwarding their rewards to
+        mapping(ERC20 => address) rewardRecipients;
     }
 
     // The fixed point factor
@@ -37,10 +39,6 @@ contract PirexRewards is OwnableUpgradeable {
 
     // Producer token => strategies
     mapping(ERC20 => bytes[]) public strategies;
-
-    // Accounts which users are forwarding their rewards to
-    // User address => reward token => reward recipient address
-    mapping(address => mapping(ERC20 => address)) public rewardRecipients;
 
     event SetProducer(address producer);
     event AddStrategy(bytes indexed newStrategy);
@@ -327,7 +325,7 @@ contract PirexRewards is OwnableUpgradeable {
         view
         returns (address)
     {
-        return rewardRecipients[user][rewardToken];
+        return users[user].rewardRecipients[rewardToken];
     }
 
     /**
@@ -339,7 +337,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
 
-        rewardRecipients[msg.sender][rewardToken] = recipient;
+        users[msg.sender].rewardRecipients[rewardToken] = recipient;
 
         emit SetRewardRecipient(msg.sender, rewardToken, recipient);
     }
@@ -351,7 +349,7 @@ contract PirexRewards is OwnableUpgradeable {
     function unsetRewardRecipient(ERC20 rewardToken) external {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        delete rewardRecipients[msg.sender][rewardToken];
+        delete users[msg.sender].rewardRecipients[rewardToken];
 
         emit UnsetRewardRecipient(msg.sender, rewardToken);
     }
@@ -377,7 +375,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (address(rewardToken) == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
 
-        rewardRecipients[lpContract][rewardToken] = recipient;
+        users[lpContract].rewardRecipients[rewardToken] = recipient;
 
         emit SetRewardRecipient(lpContract, rewardToken, recipient);
     }
@@ -394,7 +392,7 @@ contract PirexRewards is OwnableUpgradeable {
         if (lpContract.code.length == 0) revert NotContract();
         if (address(rewardToken) == address(0)) revert ZeroAddress();
 
-        delete rewardRecipients[lpContract][rewardToken];
+        delete users[lpContract].rewardRecipients[rewardToken];
 
         emit UnsetRewardRecipient(lpContract, rewardToken);
     }
