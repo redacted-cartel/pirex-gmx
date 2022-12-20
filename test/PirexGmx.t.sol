@@ -548,7 +548,7 @@ contract PirexGmxTest is Test, Helper {
 
         assertEq(
             expectedPostDepositGmxBalancePirexGmx,
-            rewardTrackerGmx.balanceOf(address(pirexGmx))
+            stakedGmx.depositBalances(address(pirexGmx), address(gmx))
         );
         assertEq(expectedPostDepositPxGmxSupply, pxGmx.totalSupply());
     }
