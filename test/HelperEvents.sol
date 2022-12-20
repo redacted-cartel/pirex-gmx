@@ -69,6 +69,7 @@ contract HelperEvents {
     event Claim(
         ERC20 indexed rewardToken,
         address indexed user,
+        address indexed recipient,
         uint256 amount
     );
     event SetRewardRecipient(

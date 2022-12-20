@@ -42,6 +42,7 @@ contract PirexRewards is OwnableUpgradeable {
     event Claim(
         ERC20 indexed rewardToken,
         address indexed user,
+        address indexed recipient,
         uint256 amount
     );
     event SetRewardRecipient(
@@ -306,9 +307,15 @@ contract PirexRewards is OwnableUpgradeable {
             if (accrued != 0) {
                 u.rewardsAccrued[r] = 0;
 
-                producer.claimUserReward(address(r), accrued, user);
+                // Forward rewards if a rewardRecipient is set
+                address rewardRecipient = users[user].rewardRecipients[r];
+                address recipient = rewardRecipient == address(0)
+                    ? user
+                    : rewardRecipient;
 
-                emit Claim(r, user, accrued);
+                producer.claimUserReward(address(r), accrued, recipient);
+
+                emit Claim(r, user, recipient, accrued);
             }
         }
     }
