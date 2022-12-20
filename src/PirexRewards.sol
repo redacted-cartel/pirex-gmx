@@ -292,7 +292,7 @@ contract PirexRewards is OwnableUpgradeable {
       @param  rewardTokens  ERC20[]  Reward token contracts
       @param  user          address  The user claiming rewards
     */
-    function claim(ERC20[] calldata rewardTokens, address user) external {
+    function claim(ERC20[] calldata rewardTokens, address user) public {
         uint256 rLen = rewardTokens.length;
 
         if (rLen == 0) revert EmptyArray();
@@ -318,6 +318,33 @@ contract PirexRewards is OwnableUpgradeable {
                 emit Claim(r, user, recipient, accrued);
             }
         }
+    }
+
+    /**
+      @notice Accrue rewards and claim them for a given user
+      @param  producerTokens  ERC20[]  Producer token contracts
+      @param  rewardTokens    ERC20[]  Reward token contracts
+      @param  user            address  The user claiming rewards
+    */
+    function accrueAndClaim(
+        ERC20[] calldata producerTokens,
+        ERC20[] calldata rewardTokens,
+        address user
+    ) external {
+        uint256 pLen = producerTokens.length;
+
+        // The only check necessary since the `claim` method validates the remaining parameters
+        if (pLen == 0) revert EmptyArray();
+
+        // Harvest and accrue strategy indexes to ensure the rewards are up-to-date
+        accrueStrategy();
+
+        for (uint256 i; i < pLen; ++i) {
+            // Accrue rewards for every producer token in preparation for the claim
+            accrueUser(producerTokens[i], user);
+        }
+
+        claim(rewardTokens, user);
     }
 
     /**
