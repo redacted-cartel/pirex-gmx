@@ -2,8 +2,6 @@
 pragma solidity 0.8.17;
 
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IProducer} from "src/interfaces/IProducer.sol";
 
@@ -12,14 +10,13 @@ import {IProducer} from "src/interfaces/IProducer.sol";
     https://github.com/fei-protocol/flywheel-v2/blob/dbe3cb8/src/FlywheelCore.sol
 */
 contract PirexRewards is OwnableUpgradeable {
-    using SafeTransferLib for ERC20;
-    using SafeCastLib for uint256;
-
     struct User {
         // User index per strategy
         mapping(bytes => uint256) strategyIndex;
+
         // Accrued but not yet transferred rewards
         mapping(ERC20 => uint256) rewardsAccrued;
+
         // Accounts which users are forwarding their rewards to
         mapping(ERC20 => address) rewardRecipients;
     }
@@ -31,13 +28,12 @@ contract PirexRewards is OwnableUpgradeable {
     IProducer public producer;
 
     // The strategy index
-    // Strategy (abi-encoded producer and reward tokens) => index
     mapping(bytes => uint256) public strategyState;
 
-    // User strategy index and reward accrual data
+    // User data
     mapping(address => User) internal users;
 
-    // Producer token => strategies
+    // Strategies by producer token
     mapping(ERC20 => bytes[]) public strategies;
 
     event SetProducer(address producer);
