@@ -276,13 +276,19 @@ contract AutoPxGmx is ReentrancyGuard, Owned, PirexERC4626 {
 
         uint256 assetsBeforeClaim = asset.balanceOf(address(this));
 
+        ERC20[] memory producerTokens = new ERC20[](1);
         ERC20[] memory rewardTokens = new ERC20[](2);
+
+        producerTokens[0] = asset;
         rewardTokens[0] = gmxBaseReward;
         rewardTokens[1] = asset;
 
         // Make sure reward acrruals are up-to-date
-        PirexRewards(rewardsModule).accrueUser(asset, address(this));
-        PirexRewards(rewardsModule).claim(rewardTokens, address(this));
+        PirexRewards(rewardsModule).accrueAndClaim(
+            producerTokens,
+            rewardTokens,
+            address(this)
+        );
 
         // Swap entire reward balance for GMX
         gmxBaseRewardAmountIn = gmxBaseReward.balanceOf(address(this));
