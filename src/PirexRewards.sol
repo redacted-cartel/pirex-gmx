@@ -11,12 +11,10 @@ import {IProducer} from "src/interfaces/IProducer.sol";
 */
 contract PirexRewards is OwnableUpgradeable {
     struct User {
-        // User index per strategy
-        mapping(bytes => uint256) strategyIndex;
-
+        // User indexes by strategy
+        mapping(bytes => uint256) index;
         // Accrued but not yet transferred rewards
         mapping(ERC20 => uint256) rewardsAccrued;
-
         // Accounts which users are forwarding their rewards to
         mapping(ERC20 => address) rewardRecipients;
     }
@@ -27,14 +25,14 @@ contract PirexRewards is OwnableUpgradeable {
     // Core reward-producing Pirex contract
     IProducer public producer;
 
-    // The strategy index
-    mapping(bytes => uint256) public strategyState;
+    // Strategies by producer token
+    mapping(ERC20 => bytes[]) public strategies;
+
+    // Strategy indexes
+    mapping(bytes => uint256) public strategyIndexes;
 
     // User data
     mapping(address => User) internal users;
-
-    // Strategies by producer token
-    mapping(ERC20 => bytes[]) public strategies;
 
     event SetProducer(address producer);
     event AddStrategy(bytes indexed newStrategy);
@@ -57,10 +55,10 @@ contract PirexRewards is OwnableUpgradeable {
         uint256 rewardsIndex
     );
 
+    error StrategyAlreadySet();
     error ZeroAddress();
     error EmptyArray();
     error NotContract();
-    error StrategyAlreadySet();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -81,7 +79,7 @@ contract PirexRewards is OwnableUpgradeable {
     }
 
     /**
-      @notice Sync strategy state with rewards
+      @notice Sync strategy index with the rewards
       @param  strategy        bytes    The strategy to accrue a user's rewards on
       @param  accruedRewards  uint256  The rewards amount accrued by the strategy
       @return                 uint256  The updated strategy index value
@@ -92,7 +90,7 @@ contract PirexRewards is OwnableUpgradeable {
     {
         emit AccrueStrategy(strategy, accruedRewards);
 
-        if (accruedRewards == 0) return strategyState[strategy];
+        if (accruedRewards == 0) return strategyIndexes[strategy];
 
         (ERC20 producerToken, ) = _decodeStrategy(strategy);
 
@@ -105,9 +103,9 @@ contract PirexRewards is OwnableUpgradeable {
             deltaIndex = ((accruedRewards * ONE) / supplyTokens);
 
         // Accumulate rewards per token onto the index, multiplied by fixed-point factor
-        strategyState[strategy] += deltaIndex;
+        strategyIndexes[strategy] += deltaIndex;
 
-        return strategyState[strategy];
+        return strategyIndexes[strategy];
     }
 
     /**
@@ -122,11 +120,11 @@ contract PirexRewards is OwnableUpgradeable {
         User storage u = users[user];
 
         // Load indices
-        uint256 strategyIndex = strategyState[strategy];
-        uint256 supplierIndex = u.strategyIndex[strategy];
+        uint256 strategyIndex = strategyIndexes[strategy];
+        uint256 supplierIndex = u.index[strategy];
 
         // Sync user index to global
-        u.strategyIndex[strategy] = strategyIndex;
+        u.index[strategy] = strategyIndex;
 
         // If user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
         // Zero balances will have no effect other than syncing to global index
@@ -167,12 +165,12 @@ contract PirexRewards is OwnableUpgradeable {
         @param  user      address  User
         @param  strategy  bytes    Strategy (abi-encoded producer and reward tokens)
      */
-    function getUserStrategyIndex(address user, bytes memory strategy)
+    function getUserIndex(address user, bytes memory strategy)
         external
         view
         returns (uint256)
     {
-        return users[user].strategyIndex[strategy];
+        return users[user].index[strategy];
     }
 
     /**
@@ -216,11 +214,11 @@ contract PirexRewards is OwnableUpgradeable {
 
         bytes memory strategy = abi.encode(producerToken, rewardToken);
 
-        if (strategyState[strategy] != 0) revert StrategyAlreadySet();
+        if (strategyIndexes[strategy] != 0) revert StrategyAlreadySet();
 
         strategies[producerToken].push(strategy);
 
-        strategyState[strategy] = ONE;
+        strategyIndexes[strategy] = ONE;
 
         emit AddStrategy(strategy);
 

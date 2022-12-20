@@ -31,7 +31,7 @@ contract PirexRewardsTest is Helper {
                     rewardTokens[j]
                 );
 
-                uint256 index = pirexRewards.strategyState(
+                uint256 index = pirexRewards.strategyIndexes(
                     abi.encode(producerTokens[i], rewardTokens[j])
                 );
 
@@ -123,7 +123,7 @@ contract PirexRewardsTest is Helper {
 
                 // Alice should have all of the rewards accrued so far
                 assertEq(
-                    pirexRewards.strategyState(abi.encode(pxGmx, weth)) -
+                    pirexRewards.strategyIndexes(abi.encode(pxGmx, weth)) -
                         pirexRewards.ONE(),
                     pirexRewards.getUserRewardsAccrued(alice, weth)
                 );
@@ -285,7 +285,7 @@ contract PirexRewardsTest is Helper {
 
             assertEq(
                 startingStrategyIndex + expectedRewardDelta,
-                pirexRewards.strategyState(
+                pirexRewards.strategyIndexes(
                     abi.encode(producerTokens[i], rewardTokens[i])
                 )
             );
@@ -342,8 +342,8 @@ contract PirexRewardsTest is Helper {
 
                 // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
                 assertEq(
-                    pirexRewards.strategyState(strategy),
-                    pirexRewards.getUserStrategyIndex(testAccount, strategy)
+                    pirexRewards.strategyIndexes(strategy),
+                    pirexRewards.getUserIndex(testAccount, strategy)
                 );
             }
 
@@ -352,8 +352,8 @@ contract PirexRewardsTest is Helper {
 
                 // Upon their 1st accrual, each user's index should equal the strategy (i.e. no rewards accrued yet)
                 assertEq(
-                    pirexRewards.strategyState(strategy),
-                    pirexRewards.getUserStrategyIndex(testAccount, strategy)
+                    pirexRewards.strategyIndexes(strategy),
+                    pirexRewards.getUserIndex(testAccount, strategy)
                 );
             }
         }
