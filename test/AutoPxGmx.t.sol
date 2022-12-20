@@ -76,8 +76,11 @@ contract AutoPxGmxTest is Helper {
         pirexRewards.accrueStrategy();
         pirexRewards.accrueUser(pxGmx, address(autoPxGmx));
 
-        wethRewardState = pirexRewards.rewardsAccrued(address(autoPxGmx), weth);
-        pxGmxRewardState = pirexRewards.rewardsAccrued(
+        wethRewardState = pirexRewards.getUserRewardsAccrued(
+            address(autoPxGmx),
+            weth
+        );
+        pxGmxRewardState = pirexRewards.getUserRewardsAccrued(
             address(autoPxGmx),
             pxGmx
         );
